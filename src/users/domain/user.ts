@@ -2,6 +2,7 @@ import { Exclude, Expose } from 'class-transformer';
 import { FileType } from '../../files/domain/file';
 import { Role } from '../../roles/domain/role';
 import { Status } from '../../statuses/domain/status';
+import { Tenant } from '../../tenants/domain/tenant';
 import { ApiProperty } from '@nestjs/swagger';
 import databaseConfig from '../../database/config/database.config';
 import { DatabaseConfig } from '../../database/config/database-config.type';
@@ -70,6 +71,18 @@ export class User {
     type: () => Status,
   })
   status?: Status;
+
+  @ApiProperty({
+    required: false,
+    type: () => Tenant,
+    description:
+      'Last active tenant workspace used to restore tenant context on login.',
+  })
+  activeTenant?: {
+    id: Tenant['id'];
+    name?: Tenant['name'] | null;
+    slug?: Tenant['slug'] | null;
+  } | null;
 
   @ApiProperty({
     required: false,

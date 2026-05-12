@@ -18,6 +18,7 @@ import { FileType } from '../files/domain/file';
 import { Role } from '../roles/domain/role';
 import { Status } from '../statuses/domain/status';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { Tenant } from '../tenants/domain/tenant';
 
 @Injectable()
 export class UsersService {
@@ -123,6 +124,7 @@ export class UsersService {
       photo: photo,
       role: role,
       status: status,
+      activeTenant: createUserDto.activeTenant,
       provider: createUserDto.provider ?? AuthProvidersEnum.email,
       socialId: createUserDto.socialId,
     });
@@ -277,8 +279,18 @@ export class UsersService {
       photo,
       role,
       status,
+      activeTenant: updateUserDto.activeTenant,
       provider: updateUserDto.provider,
       socialId: updateUserDto.socialId,
+    });
+  }
+
+  updateActiveTenant(
+    id: User['id'],
+    activeTenant: Pick<Tenant, 'id'> | null,
+  ): Promise<User | null> {
+    return this.usersRepository.update(id, {
+      activeTenant,
     });
   }
 

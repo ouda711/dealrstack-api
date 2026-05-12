@@ -134,16 +134,24 @@ export class AccessService {
       tenantMemberships,
       currentTenantId,
     );
-    const currentTenantPermissions = currentMembership?.permissions || [];
+    const currentTenantPermissions = currentMembership?.role?.id
+      ? await this.findRolePermissions(currentMembership.role.id)
+      : [];
+    const currentMembershipWithPermissions = currentMembership
+      ? {
+          ...currentMembership,
+          permissions: currentTenantPermissions,
+        }
+      : null;
     const permissions = this.uniquePermissions([
       ...platformPermissions,
       ...currentTenantPermissions,
     ]);
 
     return {
-      currentTenant: currentMembership?.tenant || null,
-      currentTenantRole: currentMembership?.role || null,
-      currentMembership,
+      currentTenant: currentMembershipWithPermissions?.tenant || null,
+      currentTenantRole: currentMembershipWithPermissions?.role || null,
+      currentMembership: currentMembershipWithPermissions,
       platformRole: platformRole || null,
       platformPermissions,
       tenantMemberships,
@@ -180,22 +188,18 @@ export class AccessService {
       },
     });
 
-    return Promise.all(
-      memberships.map(async (membership) => ({
-        id: membership.id,
-        status: membership.status,
-        title: membership.title,
-        tenant: {
-          id: membership.tenant.id,
-          name: membership.tenant.name,
-          slug: membership.tenant.slug,
-        },
-        role: membership.role,
-        permissions: membership.role?.id
-          ? await this.findRolePermissions(membership.role.id)
-          : [],
-      })),
-    );
+    return memberships.map((membership) => ({
+      id: membership.id,
+      status: membership.status,
+      title: membership.title,
+      tenant: {
+        id: membership.tenant.id,
+        name: membership.tenant.name,
+        slug: membership.tenant.slug,
+      },
+      role: membership.role,
+      permissions: [],
+    }));
   }
 
   private resolveCurrentMembership(

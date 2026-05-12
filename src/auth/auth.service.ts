@@ -503,6 +503,26 @@ export class AuthService {
     );
   }
 
+  async updateActiveTenant(
+    userJwtPayload: JwtPayloadType,
+    tenantId: number,
+  ): Promise<NullableType<User>> {
+    const user = await this.usersService.findById(userJwtPayload.id);
+    const userWithAccess = await this.withAccessContext(user, tenantId);
+
+    if (!userWithAccess) {
+      return userWithAccess;
+    }
+
+    await this.usersService.updateActiveTenant(userWithAccess.id, {
+      id: tenantId,
+    });
+
+    userWithAccess.activeTenant = userWithAccess.access?.currentTenant || null;
+
+    return userWithAccess;
+  }
+
   async refreshToken(
     data: Pick<JwtRefreshPayloadType, 'sessionId' | 'hash'>,
   ): Promise<Omit<LoginResponseDto, 'user'>> {
@@ -558,11 +578,30 @@ export class AuthService {
       return user;
     }
 
+    const activeTenantId = user.activeTenant?.id
+      ? Number(user.activeTenant.id)
+      : undefined;
+    const resolvedTenantId = currentTenantId ?? activeTenantId;
+
     user.access = await this.accessService.getUserAccessContext({
       userId: Number(user.id),
       platformRole: user.role,
-      currentTenantId,
+      currentTenantId: resolvedTenantId,
     });
+
+    if (currentTenantId && !user.access.currentTenant) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        errors: {
+          tenantId: 'tenantMembershipNotFound',
+        },
+      });
+    }
+
+    if (!currentTenantId && activeTenantId && !user.access.currentTenant) {
+      await this.usersService.updateActiveTenant(user.id, null);
+      user.activeTenant = null;
+    }
 
     return user;
   }

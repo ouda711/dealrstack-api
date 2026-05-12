@@ -18,6 +18,7 @@ import { AuthForgotPasswordDto } from './dto/auth-forgot-password.dto';
 import { AuthConfirmEmailDto } from './dto/auth-confirm-email.dto';
 import { AuthResetPasswordDto } from './dto/auth-reset-password.dto';
 import { AuthUpdateDto } from './dto/auth-update.dto';
+import { UpdateActiveTenantDto } from './dto/update-active-tenant.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthRegisterLoginDto } from './dto/auth-register-login.dto';
 import { LoginResponseDto } from './dto/login-response.dto';
@@ -144,6 +145,23 @@ export class AuthController {
       userDto,
       this.getTenantIdFromRequest(request),
     );
+  }
+
+  @ApiBearerAuth()
+  @SerializeOptions({
+    groups: ['me'],
+  })
+  @Patch('active-tenant')
+  @UseGuards(AuthGuard('jwt'))
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({
+    type: User,
+  })
+  public updateActiveTenant(
+    @Request() request,
+    @Body() dto: UpdateActiveTenantDto,
+  ): Promise<NullableType<User>> {
+    return this.service.updateActiveTenant(request.user, dto.tenantId);
   }
 
   @ApiBearerAuth()
