@@ -55,7 +55,7 @@ export class BranchesController {
     groups: ['me'],
   })
   @Post()
-  @RequirePermissions('branches.manage')
+  @RequirePermissions('branches.manage-all')
   @HttpCode(HttpStatus.CREATED)
   @ApiParam({
     name: 'tenantId',
@@ -146,7 +146,7 @@ export class BranchesController {
     groups: ['me'],
   })
   @Patch(':id')
-  @RequirePermissions('branches.manage')
+  @RequirePermissions('branches.manage', 'branches.manage-all')
   @HttpCode(HttpStatus.OK)
   @ApiParam({
     name: 'tenantId',
@@ -181,7 +181,7 @@ export class BranchesController {
       'Soft deletes one branch scoped to the tenant in the route. Requires tenant owner, tenant admin, or platform owner access.',
   })
   @Delete(':id')
-  @RequirePermissions('branches.manage')
+  @RequirePermissions('branches.manage-all')
   @ApiParam({
     name: 'tenantId',
     type: Number,

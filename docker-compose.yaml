@@ -2,7 +2,7 @@ services:
   postgres:
     image: postgres:17.9-alpine
     ports:
-      - ${DATABASE_PORT}:5432
+      - ${DATABASE_HOST_PORT:-5433}:5432
     volumes:
       - dealrstack-db:/var/lib/postgresql/data
     environment:

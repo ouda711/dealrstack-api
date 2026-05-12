@@ -39,6 +39,7 @@ describe('Access Module', () => {
         const permissionKeys = body.map((permission) => permission.key);
         expect(permissionKeys).toContain('platform.manage');
         expect(permissionKeys).toContain('tenants.manage');
+        expect(permissionKeys).toContain('branches.manage-all');
         expect(permissionKeys).toContain('leads.manage');
         expect(permissionKeys).toContain('rentals.manage');
         expect(permissionKeys).toContain('auctions.manage');

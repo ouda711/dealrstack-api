@@ -106,7 +106,13 @@ describe('Auth', () => {
           expect(body.user.access.currentTenantRole.key).toBe('tenant-admin');
           expect(
             body.user.access.permissions.map((permission) => permission.key),
-          ).toEqual(expect.arrayContaining(['team.manage', 'settings.manage']));
+          ).toEqual(
+            expect.arrayContaining([
+              'team.manage',
+              'settings.manage',
+              'branches.manage-all',
+            ]),
+          );
           expect(
             body.user.access.permissions.map((permission) => permission.key),
           ).not.toContain('platform.manage');

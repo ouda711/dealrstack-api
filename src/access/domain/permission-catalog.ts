@@ -46,7 +46,14 @@ export const permissionCatalog: PermissionDefinition[] = [
     domain: 'branches',
     label: 'Manage branches',
     description:
-      'Can create, update, assign managers to, deactivate, and remove workspace branches.',
+      'Can update branch details for branches the user is assigned to manage.',
+  },
+  {
+    key: 'branches.manage-all',
+    domain: 'branches',
+    label: 'Manage all branches',
+    description:
+      'Can create, update, assign managers to, deactivate, and remove any branch in the workspace.',
   },
   {
     key: 'customers.manage',

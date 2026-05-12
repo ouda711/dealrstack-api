@@ -218,7 +218,17 @@ export class BranchesService {
 
     const membership = await this.getActorTenantMembership(tenantId, actor);
 
-    return ['owner', 'tenant-admin'].includes(membership?.role?.key || '');
+    if (!membership?.role?.id) {
+      return false;
+    }
+
+    const permissionKeys = await this.accessService.findRolePermissions(
+      Number(membership.role.id),
+    );
+
+    return permissionKeys.some(
+      (permission) => permission.key === 'branches.manage-all',
+    );
   }
 
   private ensureCanManageBranch(
