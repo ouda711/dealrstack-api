@@ -95,7 +95,7 @@ export class AuthController {
   })
   @HttpCode(HttpStatus.OK)
   public me(@Request() request): Promise<NullableType<User>> {
-    return this.service.me(request.user);
+    return this.service.me(request.user, this.getTenantIdFromRequest(request));
   }
 
   @ApiBearerAuth()
@@ -139,7 +139,11 @@ export class AuthController {
     @Request() request,
     @Body() userDto: AuthUpdateDto,
   ): Promise<NullableType<User>> {
-    return this.service.update(request.user, userDto);
+    return this.service.update(
+      request.user,
+      userDto,
+      this.getTenantIdFromRequest(request),
+    );
   }
 
   @ApiBearerAuth()
@@ -148,5 +152,13 @@ export class AuthController {
   @HttpCode(HttpStatus.NO_CONTENT)
   public async delete(@Request() request): Promise<void> {
     return this.service.softDelete(request.user);
+  }
+
+  private getTenantIdFromRequest(request): number | undefined {
+    const rawTenantId =
+      request.query?.tenantId ?? request.headers?.['x-tenant-id'];
+    const tenantId = Number(rawTenantId);
+
+    return Number.isFinite(tenantId) && tenantId > 0 ? tenantId : undefined;
   }
 }

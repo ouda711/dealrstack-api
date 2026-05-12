@@ -28,6 +28,7 @@ import { Session } from '../session/domain/session';
 import { SessionService } from '../session/session.service';
 import { StatusEnum } from '../statuses/statuses.enum';
 import { User } from '../users/domain/user';
+import { AccessService } from '../access/access.service';
 
 @Injectable()
 export class AuthService {
@@ -37,6 +38,7 @@ export class AuthService {
     private readonly sessionService: SessionService,
     private readonly mailService: MailService,
     private readonly configService: ConfigService<AllConfigType>,
+    private readonly accessService: AccessService,
   ) {}
 
   async validateLogin(loginDto: AuthEmailLoginDto): Promise<LoginResponseDto> {
@@ -104,7 +106,7 @@ export class AuthService {
       refreshToken,
       token,
       tokenExpires,
-      user,
+      user: await this.withAccessContext(user, loginDto.tenantId),
     };
   }
 
@@ -189,7 +191,7 @@ export class AuthService {
       refreshToken,
       token: jwtToken,
       tokenExpires,
-      user,
+      user: await this.withAccessContext(user),
     };
   }
 
@@ -391,13 +393,19 @@ export class AuthService {
     await this.usersService.update(user.id, user);
   }
 
-  async me(userJwtPayload: JwtPayloadType): Promise<NullableType<User>> {
-    return this.usersService.findById(userJwtPayload.id);
+  async me(
+    userJwtPayload: JwtPayloadType,
+    currentTenantId?: number,
+  ): Promise<NullableType<User>> {
+    const user = await this.usersService.findById(userJwtPayload.id);
+
+    return this.withAccessContext(user, currentTenantId);
   }
 
   async update(
     userJwtPayload: JwtPayloadType,
     userDto: AuthUpdateDto,
+    currentTenantId?: number,
   ): Promise<NullableType<User>> {
     const currentUser = await this.usersService.findById(userJwtPayload.id);
 
@@ -489,7 +497,10 @@ export class AuthService {
 
     await this.usersService.update(userJwtPayload.id, userDto);
 
-    return this.usersService.findById(userJwtPayload.id);
+    return this.withAccessContext(
+      await this.usersService.findById(userJwtPayload.id),
+      currentTenantId,
+    );
   }
 
   async refreshToken(
@@ -537,6 +548,23 @@ export class AuthService {
 
   async logout(data: Pick<JwtRefreshPayloadType, 'sessionId'>) {
     return this.sessionService.deleteById(data.sessionId);
+  }
+
+  private async withAccessContext<T extends NullableType<User>>(
+    user: T,
+    currentTenantId?: number,
+  ): Promise<T> {
+    if (!user) {
+      return user;
+    }
+
+    user.access = await this.accessService.getUserAccessContext({
+      userId: Number(user.id),
+      platformRole: user.role,
+      currentTenantId,
+    });
+
+    return user;
   }
 
   private async getTokensData(data: {

@@ -165,6 +165,21 @@ export class AccessSeedService {
           role: rolesByKey.get('salesperson'),
           title: 'Salesperson',
         });
+        await this.seedMembership({
+          email: 'tenant-admin@dealrstack.com',
+          tenant,
+          role: rolesByKey.get('tenant-admin'),
+          title: 'Tenant Admin',
+        });
+      }
+
+      if (tenant.slug === 'mombasa-motors-yard') {
+        await this.seedMembership({
+          email: 'tenant-admin@dealrstack.com',
+          tenant,
+          role: rolesByKey.get('manager'),
+          title: 'Branch Manager',
+        });
       }
     }
   }

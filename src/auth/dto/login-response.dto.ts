@@ -2,17 +2,25 @@ import { ApiProperty } from '@nestjs/swagger';
 import { User } from '../../users/domain/user';
 
 export class LoginResponseDto {
-  @ApiProperty()
+  @ApiProperty({
+    description: 'JWT access token for authenticated API requests.',
+  })
   token: string;
 
-  @ApiProperty()
+  @ApiProperty({
+    description: 'JWT refresh token used to rotate access tokens.',
+  })
   refreshToken: string;
 
-  @ApiProperty()
+  @ApiProperty({
+    description: 'Access token expiration timestamp in milliseconds.',
+  })
   tokenExpires: number;
 
   @ApiProperty({
     type: () => User,
+    description:
+      'Authenticated user including server-computed access context. Users can belong to multiple tenants with different roles and permissions.',
   })
   user: User;
 }

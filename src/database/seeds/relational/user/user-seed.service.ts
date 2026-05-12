@@ -15,54 +15,67 @@ export class UserSeedService {
   ) {}
 
   async run() {
-    const countAdmin = await this.repository.count({
-      where: {
-        email: 'admin@dealrstack.com',
+    await this.seedUser({
+      firstName: 'Super',
+      lastName: 'Admin',
+      email: 'admin@dealrstack.com',
+      role: {
+        id: RoleEnum.superAdmin,
+        name: 'Super Admin',
       },
     });
 
-    if (!countAdmin) {
-      const salt = await bcrypt.genSalt();
-      const password = await bcrypt.hash('secret', salt);
+    await this.seedUser({
+      firstName: 'Tina',
+      lastName: 'Tenant Admin',
+      email: 'tenant-admin@dealrstack.com',
+      role: {
+        id: RoleEnum.user,
+        name: 'User',
+      },
+    });
 
-      await this.repository.save(
-        this.repository.create({
-          firstName: 'Super',
-          lastName: 'Admin',
-          email: 'admin@dealrstack.com',
-          password,
-          role: {
-            id: RoleEnum.superAdmin,
-            name: 'Super Admin',
-          },
-          status: {
-            id: StatusEnum.active,
-            name: 'Active',
-          },
-        }),
-      );
-    }
+    await this.seedUser({
+      firstName: 'John',
+      lastName: 'Sales',
+      email: 'sales@dealrstack.com',
+      role: {
+        id: RoleEnum.user,
+        name: 'User',
+      },
+    });
+  }
 
+  private async seedUser({
+    firstName,
+    lastName,
+    email,
+    role,
+  }: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    role: {
+      id: RoleEnum;
+      name: string;
+    };
+  }) {
     const countUser = await this.repository.count({
       where: {
-        email: 'sales@dealrstack.com',
+        email,
       },
     });
 
     if (!countUser) {
       const salt = await bcrypt.genSalt();
       const password = await bcrypt.hash('secret', salt);
-
       await this.repository.save(
         this.repository.create({
-          firstName: 'John',
-          lastName: 'Sales',
-          email: 'sales@dealrstack.com',
+          firstName,
+          lastName,
+          email,
           password,
-          role: {
-            id: RoleEnum.user,
-            name: 'User',
-          },
+          role,
           status: {
             id: StatusEnum.active,
             name: 'Active',

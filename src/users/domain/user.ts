@@ -5,6 +5,8 @@ import { Status } from '../../statuses/domain/status';
 import { ApiProperty } from '@nestjs/swagger';
 import databaseConfig from '../../database/config/database.config';
 import { DatabaseConfig } from '../../database/config/database-config.type';
+import type { UserAccessContext } from '../../access/access.service';
+import { UserAccessContextDto } from '../../access/dto/access-context.dto';
 
 // <database-block>
 const idType = (databaseConfig() as DatabaseConfig).isDocumentDatabase
@@ -68,6 +70,14 @@ export class User {
     type: () => Status,
   })
   status?: Status;
+
+  @ApiProperty({
+    required: false,
+    type: () => UserAccessContextDto,
+    description:
+      'Server-computed access context for platform and tenant permissions.',
+  })
+  access?: UserAccessContext;
 
   @ApiProperty()
   createdAt: Date;

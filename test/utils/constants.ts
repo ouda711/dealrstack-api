@@ -3,6 +3,8 @@ export const TESTER_EMAIL = 'sales@dealrstack.com';
 export const TESTER_PASSWORD = 'secret';
 export const ADMIN_EMAIL = 'admin@dealrstack.com';
 export const ADMIN_PASSWORD = 'secret';
+export const TENANT_ADMIN_EMAIL = 'tenant-admin@dealrstack.com';
+export const TENANT_ADMIN_PASSWORD = 'secret';
 export const MAIL_HOST =
   process.env.MAIL_HOST === 'maildev' ? 'localhost' : process.env.MAIL_HOST;
 export const MAIL_PORT = process.env.MAIL_CLIENT_PORT;
