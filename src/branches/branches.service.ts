@@ -1,10 +1,12 @@
 import {
+  ForbiddenException,
   HttpStatus,
   Injectable,
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { AccessService } from '../access/access.service';
+import { RoleEnum } from '../roles/roles.enum';
 import { Tenant } from '../tenants/domain/tenant';
 import { TenantsService } from '../tenants/tenants.service';
 import { User } from '../users/domain/user';
@@ -14,6 +16,8 @@ import { CreateBranchDto } from './dto/create-branch.dto';
 import { UpdateBranchDto } from './dto/update-branch.dto';
 import { Branch } from './domain/branch';
 import { BranchRepository } from './infrastructure/persistence/branch.repository';
+
+type BranchActor = Pick<User, 'id' | 'role'>;
 
 @Injectable()
 export class BranchesService {
@@ -26,8 +30,10 @@ export class BranchesService {
   async create(
     tenantId: Tenant['id'],
     createBranchDto: CreateBranchDto,
+    actor: BranchActor,
   ): Promise<Branch> {
     const tenant = await this.getTenantOrThrow(tenantId);
+    await this.ensureCanManageAllBranches(Number(tenant.id), actor);
     await this.ensureCodeIsAvailable(Number(tenant.id), createBranchDto.code);
     const manager = await this.resolveTenantManager(
       Number(tenant.id),
@@ -70,8 +76,23 @@ export class BranchesService {
     tenantId: Tenant['id'],
     id: Branch['id'],
     updateBranchDto: UpdateBranchDto,
+    actor: BranchActor,
   ): Promise<Branch | null> {
     await this.getTenantOrThrow(tenantId);
+    const existingBranch = await this.getBranchOrThrow(tenantId, id);
+    const canManageAllBranches = await this.canManageAllBranches(
+      Number(tenantId),
+      actor,
+    );
+
+    this.ensureCanManageBranch(existingBranch, actor, canManageAllBranches);
+
+    if (updateBranchDto.managerId !== undefined && !canManageAllBranches) {
+      throw new ForbiddenException({
+        status: HttpStatus.FORBIDDEN,
+        error: 'branchManagerCannotReassignBranchManager',
+      });
+    }
 
     if (updateBranchDto.code) {
       await this.ensureCodeIsAvailable(
@@ -107,8 +128,13 @@ export class BranchesService {
     return this.branchesRepository.update(Number(tenantId), id, payload);
   }
 
-  async remove(tenantId: Tenant['id'], id: Branch['id']): Promise<void> {
+  async remove(
+    tenantId: Tenant['id'],
+    id: Branch['id'],
+    actor: BranchActor,
+  ): Promise<void> {
     await this.getTenantOrThrow(tenantId);
+    await this.ensureCanManageAllBranches(Number(tenantId), actor);
     await this.branchesRepository.remove(Number(tenantId), id);
   }
 
@@ -147,6 +173,79 @@ export class BranchesService {
         },
       });
     }
+  }
+
+  private async getBranchOrThrow(
+    tenantId: Tenant['id'],
+    id: Branch['id'],
+  ): Promise<Branch> {
+    const branch = await this.branchesRepository.findByTenantIdAndId(
+      Number(tenantId),
+      id,
+    );
+
+    if (!branch) {
+      throw new NotFoundException({
+        status: HttpStatus.NOT_FOUND,
+        error: 'branchNotFound',
+      });
+    }
+
+    return branch;
+  }
+
+  private async ensureCanManageAllBranches(
+    tenantId: number,
+    actor: BranchActor,
+  ): Promise<void> {
+    if (await this.canManageAllBranches(tenantId, actor)) {
+      return;
+    }
+
+    throw new ForbiddenException({
+      status: HttpStatus.FORBIDDEN,
+      error: 'branchManagementRequiresTenantAdmin',
+    });
+  }
+
+  private async canManageAllBranches(
+    tenantId: number,
+    actor: BranchActor,
+  ): Promise<boolean> {
+    if (Number(actor.role?.id) === RoleEnum.superAdmin) {
+      return true;
+    }
+
+    const membership = await this.getActorTenantMembership(tenantId, actor);
+
+    return ['owner', 'tenant-admin'].includes(membership?.role?.key || '');
+  }
+
+  private ensureCanManageBranch(
+    branch: Branch,
+    actor: BranchActor,
+    canManageAllBranches: boolean,
+  ): void {
+    if (
+      canManageAllBranches ||
+      Number(branch.manager?.id) === Number(actor.id)
+    ) {
+      return;
+    }
+
+    throw new ForbiddenException({
+      status: HttpStatus.FORBIDDEN,
+      error: 'branchManagerCanOnlyManageAssignedBranch',
+    });
+  }
+
+  private async getActorTenantMembership(tenantId: number, actor: BranchActor) {
+    const memberships =
+      await this.accessService.findTenantMemberships(tenantId);
+
+    return memberships.find(
+      (membership) => Number(membership.user.id) === Number(actor.id),
+    );
   }
 
   private async resolveTenantManager(

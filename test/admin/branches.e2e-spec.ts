@@ -11,10 +11,13 @@ describe('Branches Module', () => {
   const app = APP_URL;
   let tenantAdminToken: string;
   let salespersonToken: string;
+  let branchManagerToken: string;
   let nairobiTenantId: number;
   let mombasaTenantId: number;
   let nairobiManagerId: number;
   let mombasaManagerId: number;
+  let westlandsBranchId: number;
+  let mombasaRoadBranchId: number;
 
   beforeAll(async () => {
     await request(app)
@@ -55,8 +58,12 @@ describe('Branches Module', () => {
       })
       .expect(200)
       .then(({ body }) => {
-        nairobiManagerId = body.find((branch) => branch.code === 'WST')?.manager
-          ?.id;
+        const westlandsBranch = body.find((branch) => branch.code === 'WST');
+        const mombasaRoadBranch = body.find((branch) => branch.code === 'MBR');
+
+        nairobiManagerId = westlandsBranch?.manager?.id;
+        westlandsBranchId = westlandsBranch?.id;
+        mombasaRoadBranchId = mombasaRoadBranch?.id;
       });
 
     await request(app)
@@ -69,6 +76,18 @@ describe('Branches Module', () => {
       .then(({ body }) => {
         mombasaManagerId = body.find((branch) => branch.code === 'NYL')?.manager
           ?.id;
+      });
+
+    await request(app)
+      .post('/api/v1/auth/email/login')
+      .send({
+        email: 'grace@nairobi-auto-hub.co.ke',
+        password: 'secret',
+        tenantId: nairobiTenantId,
+      })
+      .expect(200)
+      .then(({ body }) => {
+        branchManagerToken = body.token;
       });
   });
 
@@ -213,6 +232,80 @@ describe('Branches Module', () => {
       .get(`/api/v1/tenants/${mombasaTenantId}/branches`)
       .set('x-tenant-id', String(mombasaTenantId))
       .auth(salespersonToken, {
+        type: 'bearer',
+      })
+      .expect(403);
+  });
+
+  it('should allow branch managers to view all branches in their tenant overview', () => {
+    return request(app)
+      .get(`/api/v1/tenants/${nairobiTenantId}/branches`)
+      .set('x-tenant-id', String(nairobiTenantId))
+      .auth(branchManagerToken, {
+        type: 'bearer',
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        const branchCodes = body.map((branch) => branch.code);
+
+        expect(branchCodes).toEqual(expect.arrayContaining(['WST', 'MBR']));
+      });
+  });
+
+  it('should allow branch managers to update their assigned branch', () => {
+    return request(app)
+      .patch(`/api/v1/tenants/${nairobiTenantId}/branches/${westlandsBranchId}`)
+      .set('x-tenant-id', String(nairobiTenantId))
+      .auth(branchManagerToken, {
+        type: 'bearer',
+      })
+      .send({
+        openingHours: 'Mon-Sat, 8:00 AM - 6:00 PM',
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.id).toBe(westlandsBranchId);
+        expect(body.openingHours).toBe('Mon-Sat, 8:00 AM - 6:00 PM');
+      });
+  });
+
+  it('should block branch managers from updating another branch', () => {
+    return request(app)
+      .patch(
+        `/api/v1/tenants/${nairobiTenantId}/branches/${mombasaRoadBranchId}`,
+      )
+      .set('x-tenant-id', String(nairobiTenantId))
+      .auth(branchManagerToken, {
+        type: 'bearer',
+      })
+      .send({
+        openingHours: 'Mon-Sat, 8:00 AM - 6:00 PM',
+      })
+      .expect(403);
+  });
+
+  it('should block branch managers from creating branches', () => {
+    return request(app)
+      .post(`/api/v1/tenants/${nairobiTenantId}/branches`)
+      .set('x-tenant-id', String(nairobiTenantId))
+      .auth(branchManagerToken, {
+        type: 'bearer',
+      })
+      .send({
+        name: 'Branch Manager Created Branch',
+        code: `BMG-${Date.now()}`,
+        city: 'Nairobi',
+      })
+      .expect(403);
+  });
+
+  it('should block branch managers from deleting their assigned branch', () => {
+    return request(app)
+      .delete(
+        `/api/v1/tenants/${nairobiTenantId}/branches/${westlandsBranchId}`,
+      )
+      .set('x-tenant-id', String(nairobiTenantId))
+      .auth(branchManagerToken, {
         type: 'bearer',
       })
       .expect(403);

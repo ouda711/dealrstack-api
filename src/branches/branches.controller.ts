@@ -8,6 +8,7 @@ import {
   Param,
   Patch,
   Post,
+  Request,
   SerializeOptions,
   UseGuards,
 } from '@nestjs/common';
@@ -45,7 +46,7 @@ export class BranchesController {
   @ApiOperation({
     summary: 'Create a branch for a tenant workspace',
     description:
-      'Creates a sales branch/location under the tenant in the route. Requires branches.manage in that tenant context.',
+      'Creates a sales branch/location under the tenant in the route. Requires tenant owner, tenant admin, or platform owner access.',
   })
   @ApiBody({
     type: CreateBranchDto,
@@ -66,8 +67,9 @@ export class BranchesController {
   create(
     @Param('tenantId') tenantId: number,
     @Body() createBranchDto: CreateBranchDto,
+    @Request() request,
   ): Promise<Branch> {
-    return this.branchesService.create(tenantId, createBranchDto);
+    return this.branchesService.create(tenantId, createBranchDto, request.user);
   }
 
   @ApiOkResponse({
@@ -135,7 +137,7 @@ export class BranchesController {
   @ApiOperation({
     summary: 'Update a tenant branch',
     description:
-      'Updates one branch scoped to the tenant in the route. Requires branches.manage in that tenant context.',
+      'Updates one branch scoped to the tenant in the route. Tenant owners/admins can update any branch; branch managers can only update the branch assigned to them.',
   })
   @ApiBody({
     type: UpdateBranchDto,
@@ -163,14 +165,20 @@ export class BranchesController {
     @Param('tenantId') tenantId: number,
     @Param('id') id: Branch['id'],
     @Body() updateBranchDto: UpdateBranchDto,
+    @Request() request,
   ): Promise<Branch | null> {
-    return this.branchesService.update(tenantId, id, updateBranchDto);
+    return this.branchesService.update(
+      tenantId,
+      id,
+      updateBranchDto,
+      request.user,
+    );
   }
 
   @ApiOperation({
     summary: 'Delete a tenant branch',
     description:
-      'Soft deletes one branch scoped to the tenant in the route. Requires branches.manage in that tenant context.',
+      'Soft deletes one branch scoped to the tenant in the route. Requires tenant owner, tenant admin, or platform owner access.',
   })
   @Delete(':id')
   @RequirePermissions('branches.manage')
@@ -191,7 +199,8 @@ export class BranchesController {
   remove(
     @Param('tenantId') tenantId: number,
     @Param('id') id: Branch['id'],
+    @Request() request,
   ): Promise<void> {
-    return this.branchesService.remove(tenantId, id);
+    return this.branchesService.remove(tenantId, id, request.user);
   }
 }
