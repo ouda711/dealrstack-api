@@ -27,17 +27,17 @@ export class RoleSeedService {
       );
     }
 
-    const countAdmin = await this.repository.count({
+    const countSuperAdmin = await this.repository.count({
       where: {
-        id: RoleEnum.admin,
+        id: RoleEnum.superAdmin,
       },
     });
 
-    if (!countAdmin) {
+    if (!countSuperAdmin) {
       await this.repository.save(
         this.repository.create({
-          id: RoleEnum.admin,
-          name: 'Admin',
+          id: RoleEnum.superAdmin,
+          name: 'Super Admin',
         }),
       );
     }

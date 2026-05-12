@@ -32,8 +32,8 @@ export class UserSeedService {
           email: 'admin@dealrstack.com',
           password,
           role: {
-            id: RoleEnum.admin,
-            name: 'Admin',
+            id: RoleEnum.superAdmin,
+            name: 'Super Admin',
           },
           status: {
             id: StatusEnum.active,

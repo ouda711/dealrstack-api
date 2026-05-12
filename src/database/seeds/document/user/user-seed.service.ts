@@ -28,7 +28,7 @@ export class UserSeedService {
         firstName: 'Super',
         lastName: 'Admin',
         role: {
-          _id: RoleEnum.admin.toString(),
+          _id: RoleEnum.superAdmin.toString(),
         },
         status: {
           _id: StatusEnum.active.toString(),

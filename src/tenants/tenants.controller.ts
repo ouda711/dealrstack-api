@@ -20,9 +20,8 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
-import { Roles } from '../roles/roles.decorator';
-import { RoleEnum } from '../roles/roles.enum';
-import { RolesGuard } from '../roles/roles.guard';
+import { RequirePermissions } from '../access/permissions.decorator';
+import { PermissionsGuard } from '../access/permissions.guard';
 import {
   InfinityPaginationResponse,
   InfinityPaginationResponseDto,
@@ -36,8 +35,8 @@ import { Tenant } from './domain/tenant';
 import { TenantsService } from './tenants.service';
 
 @ApiBearerAuth()
-@Roles(RoleEnum.admin)
-@UseGuards(AuthGuard('jwt'), RolesGuard)
+@RequirePermissions('tenants.manage')
+@UseGuards(AuthGuard('jwt'), PermissionsGuard)
 @ApiTags('Tenants')
 @Controller({
   path: 'tenants',
