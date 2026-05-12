@@ -35,6 +35,20 @@ export const permissionCatalog: PermissionDefinition[] = [
       'Can invite staff, manage roles, assign people to work, and control access within the workspace.',
   },
   {
+    key: 'branches.view',
+    domain: 'branches',
+    label: 'View branches',
+    description:
+      'Can view workspace branches, locations, assigned managers, contacts, and operating details.',
+  },
+  {
+    key: 'branches.manage',
+    domain: 'branches',
+    label: 'Manage branches',
+    description:
+      'Can create, update, assign managers to, deactivate, and remove workspace branches.',
+  },
+  {
     key: 'customers.manage',
     domain: 'customers',
     label: 'Manage customers',
@@ -160,6 +174,8 @@ export const builtInTenantRolePresets = [
       'Can run daily operations, manage teams, assignments, pipeline, bookings, inventory, and reports.',
     permissionKeys: [
       'team.manage',
+      'branches.view',
+      'branches.manage',
       'customers.manage',
       'leads.manage',
       'conversations.manage',
@@ -182,6 +198,7 @@ export const builtInTenantRolePresets = [
       'Can work leads, conversations, assigned customers, vehicles, pipeline activity, and follow-up tasks.',
     permissionKeys: [
       'customers.manage',
+      'branches.view',
       'leads.manage',
       'conversations.manage',
       'vehicles.manage',
@@ -197,6 +214,7 @@ export const builtInTenantRolePresets = [
       'Can manage rental customers, bookings, vehicle availability, rental tasks, and customer communication.',
     permissionKeys: [
       'customers.manage',
+      'branches.view',
       'conversations.manage',
       'vehicles.manage',
       'bookings.manage',
@@ -210,13 +228,18 @@ export const builtInTenantRolePresets = [
     name: 'Driver',
     description:
       'Can view assigned vehicles, bookings, delivery tasks, handovers, and update assigned operational work.',
-    permissionKeys: ['vehicles.manage', 'bookings.manage', 'tasks.manage'],
+    permissionKeys: [
+      'branches.view',
+      'vehicles.manage',
+      'bookings.manage',
+      'tasks.manage',
+    ],
   },
   {
     key: 'viewer',
     name: 'Viewer',
     description:
       'Read-oriented access for stakeholders who need visibility without managing daily operations.',
-    permissionKeys: ['reports.view'],
+    permissionKeys: ['branches.view', 'reports.view'],
   },
 ];

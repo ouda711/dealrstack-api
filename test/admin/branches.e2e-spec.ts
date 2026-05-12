@@ -178,10 +178,40 @@ describe('Branches Module', () => {
       });
   });
 
-  it('should block users without settings.manage from managing branches', () => {
+  it('should allow users with branch view access to list branches', () => {
     return request(app)
       .get(`/api/v1/tenants/${nairobiTenantId}/branches`)
       .set('x-tenant-id', String(nairobiTenantId))
+      .auth(salespersonToken, {
+        type: 'bearer',
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        const branchCodes = body.map((branch) => branch.code);
+
+        expect(branchCodes).toEqual(expect.arrayContaining(['WST', 'MBR']));
+      });
+  });
+
+  it('should block users with branch view access from managing branches', () => {
+    return request(app)
+      .post(`/api/v1/tenants/${nairobiTenantId}/branches`)
+      .set('x-tenant-id', String(nairobiTenantId))
+      .auth(salespersonToken, {
+        type: 'bearer',
+      })
+      .send({
+        name: 'Salesperson Managed Branch',
+        code: `SLP-${Date.now()}`,
+        city: 'Nairobi',
+      })
+      .expect(403);
+  });
+
+  it('should keep branch access scoped to the user tenant membership', () => {
+    return request(app)
+      .get(`/api/v1/tenants/${mombasaTenantId}/branches`)
+      .set('x-tenant-id', String(mombasaTenantId))
       .auth(salespersonToken, {
         type: 'bearer',
       })

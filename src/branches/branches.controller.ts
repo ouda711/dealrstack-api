@@ -30,7 +30,6 @@ import { UpdateBranchDto } from './dto/update-branch.dto';
 import { Branch } from './domain/branch';
 
 @ApiBearerAuth()
-@RequirePermissions('settings.manage')
 @UseGuards(AuthGuard('jwt'), PermissionsGuard)
 @ApiTags('Branches')
 @Controller({
@@ -46,7 +45,7 @@ export class BranchesController {
   @ApiOperation({
     summary: 'Create a branch for a tenant workspace',
     description:
-      'Creates a sales branch/location under the tenant in the route. Requires settings.manage in that tenant context.',
+      'Creates a sales branch/location under the tenant in the route. Requires branches.manage in that tenant context.',
   })
   @ApiBody({
     type: CreateBranchDto,
@@ -55,6 +54,7 @@ export class BranchesController {
     groups: ['me'],
   })
   @Post()
+  @RequirePermissions('branches.manage')
   @HttpCode(HttpStatus.CREATED)
   @ApiParam({
     name: 'tenantId',
@@ -76,12 +76,13 @@ export class BranchesController {
   @ApiOperation({
     summary: 'List branches for a tenant workspace',
     description:
-      'Returns sales branches for the tenant in the route. Requires settings.manage in that tenant context.',
+      'Returns sales branches for the tenant in the route. Requires branches.view or branches.manage in that tenant context.',
   })
   @SerializeOptions({
     groups: ['me'],
   })
   @Get()
+  @RequirePermissions('branches.view', 'branches.manage')
   @HttpCode(HttpStatus.OK)
   @ApiParam({
     name: 'tenantId',
@@ -100,12 +101,13 @@ export class BranchesController {
   @ApiOperation({
     summary: 'Get a tenant branch',
     description:
-      'Returns one branch scoped to the tenant in the route. Requires settings.manage in that tenant context.',
+      'Returns one branch scoped to the tenant in the route. Requires branches.view or branches.manage in that tenant context.',
   })
   @SerializeOptions({
     groups: ['me'],
   })
   @Get(':id')
+  @RequirePermissions('branches.view', 'branches.manage')
   @HttpCode(HttpStatus.OK)
   @ApiParam({
     name: 'tenantId',
@@ -133,7 +135,7 @@ export class BranchesController {
   @ApiOperation({
     summary: 'Update a tenant branch',
     description:
-      'Updates one branch scoped to the tenant in the route. Requires settings.manage in that tenant context.',
+      'Updates one branch scoped to the tenant in the route. Requires branches.manage in that tenant context.',
   })
   @ApiBody({
     type: UpdateBranchDto,
@@ -142,6 +144,7 @@ export class BranchesController {
     groups: ['me'],
   })
   @Patch(':id')
+  @RequirePermissions('branches.manage')
   @HttpCode(HttpStatus.OK)
   @ApiParam({
     name: 'tenantId',
@@ -164,12 +167,13 @@ export class BranchesController {
     return this.branchesService.update(tenantId, id, updateBranchDto);
   }
 
-  @Delete(':id')
   @ApiOperation({
     summary: 'Delete a tenant branch',
     description:
-      'Soft deletes one branch scoped to the tenant in the route. Requires settings.manage in that tenant context.',
+      'Soft deletes one branch scoped to the tenant in the route. Requires branches.manage in that tenant context.',
   })
+  @Delete(':id')
+  @RequirePermissions('branches.manage')
   @ApiParam({
     name: 'tenantId',
     type: Number,
