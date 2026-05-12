@@ -46,6 +46,18 @@ export class BranchEntity extends EntityRelationalHelper {
   @Column({ type: String, nullable: true })
   phone?: string | null;
 
+  @Column({ type: String, nullable: true })
+  managerName?: string | null;
+
+  @Column({ type: String, nullable: true })
+  managerPhone?: string | null;
+
+  @Column({ type: String, nullable: true })
+  managerEmail?: string | null;
+
+  @Column({ type: String, nullable: true })
+  openingHours?: string | null;
+
   @Index()
   @Column({ default: true })
   isActive: boolean;

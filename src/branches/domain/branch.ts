@@ -46,6 +46,30 @@ export class Branch {
   })
   phone?: string | null;
 
+  @ApiPropertyOptional({
+    example: 'Grace Wanjiku',
+    type: String,
+  })
+  managerName?: string | null;
+
+  @ApiPropertyOptional({
+    example: '+254700000111',
+    type: String,
+  })
+  managerPhone?: string | null;
+
+  @ApiPropertyOptional({
+    example: 'grace@nairobi-auto-hub.co.ke',
+    type: String,
+  })
+  managerEmail?: string | null;
+
+  @ApiPropertyOptional({
+    example: 'Mon-Sat, 8:30 AM - 6:00 PM',
+    type: String,
+  })
+  openingHours?: string | null;
+
   @ApiProperty({
     example: true,
     type: Boolean,

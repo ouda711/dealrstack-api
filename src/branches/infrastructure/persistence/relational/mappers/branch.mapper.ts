@@ -16,6 +16,10 @@ export class BranchMapper {
     domainEntity.city = raw.city;
     domainEntity.address = raw.address;
     domainEntity.phone = raw.phone;
+    domainEntity.managerName = raw.managerName;
+    domainEntity.managerPhone = raw.managerPhone;
+    domainEntity.managerEmail = raw.managerEmail;
+    domainEntity.openingHours = raw.openingHours;
     domainEntity.isActive = raw.isActive;
     domainEntity.createdAt = raw.createdAt;
     domainEntity.updatedAt = raw.updatedAt;
@@ -38,6 +42,10 @@ export class BranchMapper {
     persistenceEntity.city = domainEntity.city;
     persistenceEntity.address = domainEntity.address;
     persistenceEntity.phone = domainEntity.phone;
+    persistenceEntity.managerName = domainEntity.managerName;
+    persistenceEntity.managerPhone = domainEntity.managerPhone;
+    persistenceEntity.managerEmail = domainEntity.managerEmail;
+    persistenceEntity.openingHours = domainEntity.openingHours;
     persistenceEntity.isActive = domainEntity.isActive;
     persistenceEntity.createdAt = domainEntity.createdAt;
     persistenceEntity.updatedAt = domainEntity.updatedAt;

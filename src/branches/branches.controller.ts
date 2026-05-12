@@ -13,7 +13,9 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiBody,
   ApiCreatedResponse,
+  ApiOperation,
   ApiOkResponse,
   ApiParam,
   ApiTags,
@@ -41,6 +43,14 @@ export class BranchesController {
   @ApiCreatedResponse({
     type: Branch,
   })
+  @ApiOperation({
+    summary: 'Create a branch for a tenant workspace',
+    description:
+      'Creates a sales branch/location under the tenant in the route. Requires settings.manage in that tenant context.',
+  })
+  @ApiBody({
+    type: CreateBranchDto,
+  })
   @SerializeOptions({
     groups: ['me'],
   })
@@ -50,6 +60,8 @@ export class BranchesController {
     name: 'tenantId',
     type: Number,
     required: true,
+    description:
+      'Tenant workspace ID. Must match a tenant the user can manage.',
   })
   create(
     @Param('tenantId') tenantId: number,
@@ -61,6 +73,11 @@ export class BranchesController {
   @ApiOkResponse({
     type: [Branch],
   })
+  @ApiOperation({
+    summary: 'List branches for a tenant workspace',
+    description:
+      'Returns sales branches for the tenant in the route. Requires settings.manage in that tenant context.',
+  })
   @SerializeOptions({
     groups: ['me'],
   })
@@ -70,6 +87,8 @@ export class BranchesController {
     name: 'tenantId',
     type: Number,
     required: true,
+    description:
+      'Tenant workspace ID. Must match a tenant the user can manage.',
   })
   findAll(@Param('tenantId') tenantId: number): Promise<Branch[]> {
     return this.branchesService.findByTenantId(tenantId);
@@ -77,6 +96,11 @@ export class BranchesController {
 
   @ApiOkResponse({
     type: Branch,
+  })
+  @ApiOperation({
+    summary: 'Get a tenant branch',
+    description:
+      'Returns one branch scoped to the tenant in the route. Requires settings.manage in that tenant context.',
   })
   @SerializeOptions({
     groups: ['me'],
@@ -87,11 +111,14 @@ export class BranchesController {
     name: 'tenantId',
     type: Number,
     required: true,
+    description:
+      'Tenant workspace ID. Must match a tenant the user can manage.',
   })
   @ApiParam({
     name: 'id',
     type: Number,
     required: true,
+    description: 'Branch ID scoped to the tenant workspace.',
   })
   findOne(
     @Param('tenantId') tenantId: number,
@@ -103,6 +130,14 @@ export class BranchesController {
   @ApiOkResponse({
     type: Branch,
   })
+  @ApiOperation({
+    summary: 'Update a tenant branch',
+    description:
+      'Updates one branch scoped to the tenant in the route. Requires settings.manage in that tenant context.',
+  })
+  @ApiBody({
+    type: UpdateBranchDto,
+  })
   @SerializeOptions({
     groups: ['me'],
   })
@@ -112,11 +147,14 @@ export class BranchesController {
     name: 'tenantId',
     type: Number,
     required: true,
+    description:
+      'Tenant workspace ID. Must match a tenant the user can manage.',
   })
   @ApiParam({
     name: 'id',
     type: Number,
     required: true,
+    description: 'Branch ID scoped to the tenant workspace.',
   })
   update(
     @Param('tenantId') tenantId: number,
@@ -127,15 +165,23 @@ export class BranchesController {
   }
 
   @Delete(':id')
+  @ApiOperation({
+    summary: 'Delete a tenant branch',
+    description:
+      'Soft deletes one branch scoped to the tenant in the route. Requires settings.manage in that tenant context.',
+  })
   @ApiParam({
     name: 'tenantId',
     type: Number,
     required: true,
+    description:
+      'Tenant workspace ID. Must match a tenant the user can manage.',
   })
   @ApiParam({
     name: 'id',
     type: Number,
     required: true,
+    description: 'Branch ID scoped to the tenant workspace.',
   })
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(

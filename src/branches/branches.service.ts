@@ -38,6 +38,10 @@ export class BranchesService {
       city: createBranchDto.city,
       address: createBranchDto.address,
       phone: createBranchDto.phone,
+      managerName: createBranchDto.managerName,
+      managerPhone: createBranchDto.managerPhone,
+      managerEmail: createBranchDto.managerEmail,
+      openingHours: createBranchDto.openingHours,
       isActive: createBranchDto.isActive ?? true,
     });
   }
@@ -82,6 +86,18 @@ export class BranchesService {
     }
     if (updateBranchDto.phone !== undefined)
       payload.phone = updateBranchDto.phone;
+    if (updateBranchDto.managerName !== undefined) {
+      payload.managerName = updateBranchDto.managerName;
+    }
+    if (updateBranchDto.managerPhone !== undefined) {
+      payload.managerPhone = updateBranchDto.managerPhone;
+    }
+    if (updateBranchDto.managerEmail !== undefined) {
+      payload.managerEmail = updateBranchDto.managerEmail;
+    }
+    if (updateBranchDto.openingHours !== undefined) {
+      payload.openingHours = updateBranchDto.openingHours;
+    }
     if (updateBranchDto.isActive !== undefined) {
       payload.isActive = updateBranchDto.isActive;
     }
