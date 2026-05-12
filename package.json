@@ -1,8 +1,8 @@
 {
-  "name": "nestjs-boilerplate",
+  "name": "dealrstack-api",
   "version": "1.2.0",
-  "description": "",
-  "author": "",
+  "description": "DealrStack backend API for dealership sales operations.",
+  "author": "DealrStack",
   "private": true,
   "license": "MIT",
   "scripts": {

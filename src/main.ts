@@ -37,8 +37,8 @@ async function bootstrap() {
   );
 
   const options = new DocumentBuilder()
-    .setTitle('API')
-    .setDescription('API docs')
+    .setTitle('DealrStack API')
+    .setDescription('Backend API for DealrStack dealership sales operations.')
     .setVersion('1.0')
     .addBearerAuth()
     .addGlobalParameters({
