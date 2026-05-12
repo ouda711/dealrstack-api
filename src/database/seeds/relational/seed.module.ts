@@ -11,6 +11,7 @@ import databaseConfig from '../../config/database.config';
 import appConfig from '../../../config/app.config';
 import { TenantSeedModule } from './tenant/tenant-seed.module';
 import { AccessSeedModule } from './access/access-seed.module';
+import { BranchSeedModule } from './branch/branch-seed.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { AccessSeedModule } from './access/access-seed.module';
     UserSeedModule,
     TenantSeedModule,
     AccessSeedModule,
+    BranchSeedModule,
     ConfigModule.forRoot({
       isGlobal: true,
       load: [databaseConfig, appConfig],

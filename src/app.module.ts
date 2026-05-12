@@ -29,6 +29,7 @@ import { MongooseConfigService } from './database/mongoose-config.service';
 import { DatabaseConfig } from './database/config/database-config.type';
 import { TenantsModule } from './tenants/tenants.module';
 import { AccessModule } from './access/access.module';
+import { BranchesModule } from './branches/branches.module';
 
 // <database-block>
 const infrastructureDatabaseModule = (databaseConfig() as DatabaseConfig)
@@ -96,6 +97,7 @@ const infrastructureDatabaseModule = (databaseConfig() as DatabaseConfig)
     HomeModule,
     TenantsModule,
     AccessModule,
+    BranchesModule,
   ],
 })
 export class AppModule {}
