@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { BranchEntity } from '../branches/infrastructure/persistence/relational/entities/branch.entity';
 import {
   RoleEntity,
   RoleScope,
@@ -32,10 +33,18 @@ type UserTenantMembershipAccess = {
   permissions: PermissionGrant[];
 };
 
+type UserBranchAccess = {
+  id: number;
+  name: string;
+  code: string;
+};
+
 export type UserAccessContext = {
   currentTenant: UserTenantMembershipAccess['tenant'] | null;
   currentTenantRole: RoleEntity | null;
   currentMembership: UserTenantMembershipAccess | null;
+  currentBranch: UserBranchAccess | null;
+  currentBranches: UserBranchAccess[];
   platformRole: AccessRole | null;
   platformPermissions: PermissionGrant[];
   tenantMemberships: UserTenantMembershipAccess[];
@@ -53,6 +62,8 @@ export class AccessService {
     private readonly rolePermissionRepository: Repository<RolePermissionEntity>,
     @InjectRepository(TenantMembershipEntity)
     private readonly tenantMembershipRepository: Repository<TenantMembershipEntity>,
+    @InjectRepository(BranchEntity)
+    private readonly branchRepository: Repository<BranchEntity>,
   ) {}
 
   findPermissions(): Promise<PermissionEntity[]> {
@@ -143,6 +154,9 @@ export class AccessService {
           permissions: currentTenantPermissions,
         }
       : null;
+    const currentBranches = currentMembership
+      ? await this.findUserAssignedBranches(userId, currentMembership.tenant.id)
+      : [];
     const permissions = this.uniquePermissions([
       ...platformPermissions,
       ...currentTenantPermissions,
@@ -152,6 +166,8 @@ export class AccessService {
       currentTenant: currentMembershipWithPermissions?.tenant || null,
       currentTenantRole: currentMembershipWithPermissions?.role || null,
       currentMembership: currentMembershipWithPermissions,
+      currentBranch: currentBranches[0] || null,
+      currentBranches,
       platformRole: platformRole || null,
       platformPermissions,
       tenantMemberships,
@@ -199,6 +215,33 @@ export class AccessService {
       },
       role: membership.role,
       permissions: [],
+    }));
+  }
+
+  private async findUserAssignedBranches(
+    userId: number,
+    tenantId: number,
+  ): Promise<UserBranchAccess[]> {
+    const branches = await this.branchRepository.find({
+      where: {
+        tenant: {
+          id: tenantId,
+        },
+        manager: {
+          id: userId,
+        },
+        isActive: true,
+      },
+      order: {
+        createdAt: 'ASC',
+        code: 'ASC',
+      },
+    });
+
+    return branches.map((branch) => ({
+      id: branch.id,
+      name: branch.name,
+      code: branch.code,
     }));
   }
 

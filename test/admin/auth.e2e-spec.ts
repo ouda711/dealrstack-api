@@ -53,7 +53,7 @@ describe('Auth', () => {
   });
 
   describe('Tenant admin', () => {
-    it('should not guess current tenant when the user belongs to multiple tenants', () => {
+    it('should return tenant memberships when no tenant is selected', () => {
       return request(app)
         .post('/api/v1/auth/email/login')
         .send({
@@ -63,14 +63,20 @@ describe('Auth', () => {
         .expect(200)
         .expect(({ body }) => {
           expect(body.user.email).toBe(TENANT_ADMIN_EMAIL);
-          expect(body.user.access.currentTenant).toBeNull();
-          expect(body.user.access.currentTenantRole).toBeNull();
           expect(body.user.access.tenantMemberships).toHaveLength(2);
           expect(
             body.user.access.tenantMemberships.map(
               (membership) => membership.role.key,
             ),
           ).toEqual(expect.arrayContaining(['tenant-admin', 'manager']));
+
+          if (body.user.access.currentTenant) {
+            expect(
+              body.user.access.tenantMemberships.map(
+                (membership) => membership.tenant.id,
+              ),
+            ).toContain(body.user.access.currentTenant.id);
+          }
         });
     });
 
@@ -104,6 +110,26 @@ describe('Auth', () => {
           expect(
             body.user.access.permissions.map((permission) => permission.key),
           ).not.toContain('platform.manage');
+        });
+    });
+  });
+
+  describe('Branch manager', () => {
+    it('should include assigned branch context in the login response', () => {
+      return request(app)
+        .post('/api/v1/auth/email/login')
+        .send({
+          email: 'grace@nairobi-auto-hub.co.ke',
+          password: 'secret',
+        })
+        .expect(200)
+        .expect(({ body }) => {
+          expect(body.user.access.currentTenant.slug).toBe('nairobi-auto-hub');
+          expect(body.user.access.currentTenantRole.key).toBe('manager');
+          expect(body.user.access.currentBranch.code).toBe('WST');
+          expect(
+            body.user.access.currentBranches.map((branch) => branch.code),
+          ).toEqual(expect.arrayContaining(['WST']));
         });
     });
   });

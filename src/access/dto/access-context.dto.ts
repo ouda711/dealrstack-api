@@ -45,6 +45,17 @@ export class AccessRoleDto {
   scope?: string | null;
 }
 
+export class AccessBranchDto {
+  @ApiProperty({ example: 1 })
+  id: number;
+
+  @ApiProperty({ example: 'Westlands Showroom' })
+  name: string;
+
+  @ApiProperty({ example: 'WST' })
+  code: string;
+}
+
 export class TenantMembershipAccessDto {
   @ApiProperty({ example: 1 })
   id: number;
@@ -87,6 +98,22 @@ export class UserAccessContextDto {
     description: 'The active tenant membership for the current tenant context.',
   })
   currentMembership: TenantMembershipAccessDto | null;
+
+  @ApiPropertyOptional({
+    type: () => AccessBranchDto,
+    nullable: true,
+    description:
+      'The first active branch assigned to the current user in the active tenant context.',
+  })
+  currentBranch: AccessBranchDto | null;
+
+  @ApiProperty({
+    type: () => AccessBranchDto,
+    isArray: true,
+    description:
+      'Active branches assigned to the current user in the active tenant context.',
+  })
+  currentBranches: AccessBranchDto[];
 
   @ApiPropertyOptional({
     type: () => AccessRoleDto,
