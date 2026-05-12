@@ -171,11 +171,35 @@ export class AccessSeedService {
           role: rolesByKey.get('tenant-admin'),
           title: 'Tenant Admin',
         });
+        await this.seedMembership({
+          email: 'grace@nairobi-auto-hub.co.ke',
+          tenant,
+          role: rolesByKey.get('manager'),
+          title: 'Branch Manager',
+        });
+        await this.seedMembership({
+          email: 'brian@nairobi-auto-hub.co.ke',
+          tenant,
+          role: rolesByKey.get('manager'),
+          title: 'Branch Manager',
+        });
       }
 
       if (tenant.slug === 'mombasa-motors-yard') {
         await this.seedMembership({
           email: 'tenant-admin@dealrstack.com',
+          tenant,
+          role: rolesByKey.get('manager'),
+          title: 'Branch Manager',
+        });
+        await this.seedMembership({
+          email: 'amina@mombasa-motors.co.ke',
+          tenant,
+          role: rolesByKey.get('manager'),
+          title: 'Branch Manager',
+        });
+        await this.seedMembership({
+          email: 'hassan@mombasa-motors.co.ke',
           tenant,
           role: rolesByKey.get('manager'),
           title: 'Branch Manager',

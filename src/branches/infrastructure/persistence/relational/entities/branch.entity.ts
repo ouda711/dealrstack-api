@@ -11,6 +11,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { TenantEntity } from '../../../../../tenants/infrastructure/persistence/relational/entities/tenant.entity';
+import { UserEntity } from '../../../../../users/infrastructure/persistence/relational/entities/user.entity';
 import { EntityRelationalHelper } from '../../../../../utils/relational-entity-helper';
 
 @Entity({
@@ -46,14 +47,13 @@ export class BranchEntity extends EntityRelationalHelper {
   @Column({ type: String, nullable: true })
   phone?: string | null;
 
-  @Column({ type: String, nullable: true })
-  managerName?: string | null;
-
-  @Column({ type: String, nullable: true })
-  managerPhone?: string | null;
-
-  @Column({ type: String, nullable: true })
-  managerEmail?: string | null;
+  @ManyToOne(() => UserEntity, {
+    eager: true,
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({ name: 'managerId' })
+  manager?: UserEntity | null;
 
   @Column({ type: String, nullable: true })
   openingHours?: string | null;

@@ -4,8 +4,10 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
+import { AccessService } from '../access/access.service';
 import { Tenant } from '../tenants/domain/tenant';
 import { TenantsService } from '../tenants/tenants.service';
+import { User } from '../users/domain/user';
 import { DeepPartial } from '../utils/types/deep-partial.type';
 import { NullableType } from '../utils/types/nullable.type';
 import { CreateBranchDto } from './dto/create-branch.dto';
@@ -18,6 +20,7 @@ export class BranchesService {
   constructor(
     private readonly branchesRepository: BranchRepository,
     private readonly tenantsService: TenantsService,
+    private readonly accessService: AccessService,
   ) {}
 
   async create(
@@ -26,6 +29,10 @@ export class BranchesService {
   ): Promise<Branch> {
     const tenant = await this.getTenantOrThrow(tenantId);
     await this.ensureCodeIsAvailable(Number(tenant.id), createBranchDto.code);
+    const manager = await this.resolveTenantManager(
+      Number(tenant.id),
+      createBranchDto.managerId,
+    );
 
     return this.branchesRepository.create({
       tenant: {
@@ -38,9 +45,7 @@ export class BranchesService {
       city: createBranchDto.city,
       address: createBranchDto.address,
       phone: createBranchDto.phone,
-      managerName: createBranchDto.managerName,
-      managerPhone: createBranchDto.managerPhone,
-      managerEmail: createBranchDto.managerEmail,
+      manager,
       openingHours: createBranchDto.openingHours,
       isActive: createBranchDto.isActive ?? true,
     });
@@ -86,14 +91,11 @@ export class BranchesService {
     }
     if (updateBranchDto.phone !== undefined)
       payload.phone = updateBranchDto.phone;
-    if (updateBranchDto.managerName !== undefined) {
-      payload.managerName = updateBranchDto.managerName;
-    }
-    if (updateBranchDto.managerPhone !== undefined) {
-      payload.managerPhone = updateBranchDto.managerPhone;
-    }
-    if (updateBranchDto.managerEmail !== undefined) {
-      payload.managerEmail = updateBranchDto.managerEmail;
+    if (updateBranchDto.managerId !== undefined) {
+      payload.manager = await this.resolveTenantManager(
+        Number(tenantId),
+        updateBranchDto.managerId,
+      );
     }
     if (updateBranchDto.openingHours !== undefined) {
       payload.openingHours = updateBranchDto.openingHours;
@@ -145,5 +147,36 @@ export class BranchesService {
         },
       });
     }
+  }
+
+  private async resolveTenantManager(
+    tenantId: number,
+    managerId?: number | null,
+  ): Promise<Pick<User, 'id' | 'email' | 'firstName' | 'lastName'> | null> {
+    if (!managerId) {
+      return null;
+    }
+
+    const memberships =
+      await this.accessService.findTenantMemberships(tenantId);
+    const membership = memberships.find(
+      (tenantMembership) => Number(tenantMembership.user.id) === managerId,
+    );
+
+    if (!membership) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        errors: {
+          managerId: 'branchManagerMustBeActiveTenantMember',
+        },
+      });
+    }
+
+    return {
+      id: membership.user.id,
+      email: membership.user.email,
+      firstName: membership.user.firstName,
+      lastName: membership.user.lastName,
+    };
   }
 }

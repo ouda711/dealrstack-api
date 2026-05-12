@@ -44,6 +44,46 @@ export class UserSeedService {
         name: 'User',
       },
     });
+
+    await this.seedUser({
+      firstName: 'Grace',
+      lastName: 'Wanjiku',
+      email: 'grace@nairobi-auto-hub.co.ke',
+      role: {
+        id: RoleEnum.user,
+        name: 'User',
+      },
+    });
+
+    await this.seedUser({
+      firstName: 'Brian',
+      lastName: 'Otieno',
+      email: 'brian@nairobi-auto-hub.co.ke',
+      role: {
+        id: RoleEnum.user,
+        name: 'User',
+      },
+    });
+
+    await this.seedUser({
+      firstName: 'Amina',
+      lastName: 'Bakari',
+      email: 'amina@mombasa-motors.co.ke',
+      role: {
+        id: RoleEnum.user,
+        name: 'User',
+      },
+    });
+
+    await this.seedUser({
+      firstName: 'Hassan',
+      lastName: 'Mwinyi',
+      email: 'hassan@mombasa-motors.co.ke',
+      role: {
+        id: RoleEnum.user,
+        name: 'User',
+      },
+    });
   }
 
   private async seedUser({

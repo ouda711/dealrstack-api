@@ -1,4 +1,5 @@
 import { TenantEntity } from '../../../../../tenants/infrastructure/persistence/relational/entities/tenant.entity';
+import { UserEntity } from '../../../../../users/infrastructure/persistence/relational/entities/user.entity';
 import { Branch } from '../../../../domain/branch';
 import { BranchEntity } from '../entities/branch.entity';
 
@@ -16,9 +17,14 @@ export class BranchMapper {
     domainEntity.city = raw.city;
     domainEntity.address = raw.address;
     domainEntity.phone = raw.phone;
-    domainEntity.managerName = raw.managerName;
-    domainEntity.managerPhone = raw.managerPhone;
-    domainEntity.managerEmail = raw.managerEmail;
+    domainEntity.manager = raw.manager
+      ? {
+          id: raw.manager.id,
+          email: raw.manager.email,
+          firstName: raw.manager.firstName,
+          lastName: raw.manager.lastName,
+        }
+      : null;
     domainEntity.openingHours = raw.openingHours;
     domainEntity.isActive = raw.isActive;
     domainEntity.createdAt = raw.createdAt;
@@ -37,14 +43,18 @@ export class BranchMapper {
     const tenant = new TenantEntity();
     tenant.id = Number(domainEntity.tenant.id);
     persistenceEntity.tenant = tenant;
+    if (domainEntity.manager) {
+      const manager = new UserEntity();
+      manager.id = Number(domainEntity.manager.id);
+      persistenceEntity.manager = manager;
+    } else if (domainEntity.manager === null) {
+      persistenceEntity.manager = null;
+    }
     persistenceEntity.name = domainEntity.name;
     persistenceEntity.code = domainEntity.code;
     persistenceEntity.city = domainEntity.city;
     persistenceEntity.address = domainEntity.address;
     persistenceEntity.phone = domainEntity.phone;
-    persistenceEntity.managerName = domainEntity.managerName;
-    persistenceEntity.managerPhone = domainEntity.managerPhone;
-    persistenceEntity.managerEmail = domainEntity.managerEmail;
     persistenceEntity.openingHours = domainEntity.openingHours;
     persistenceEntity.isActive = domainEntity.isActive;
     persistenceEntity.createdAt = domainEntity.createdAt;

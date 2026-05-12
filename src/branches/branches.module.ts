@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AccessModule } from '../access/access.module';
 import { RolePermissionEntity } from '../access/infrastructure/persistence/relational/entities/role-permission.entity';
 import { TenantMembershipEntity } from '../access/infrastructure/persistence/relational/entities/tenant-membership.entity';
 import { PermissionsGuard } from '../access/permissions.guard';
@@ -11,6 +12,7 @@ import { RelationalBranchPersistenceModule } from './infrastructure/persistence/
 @Module({
   imports: [
     RelationalBranchPersistenceModule,
+    AccessModule,
     TenantsModule,
     TypeOrmModule.forFeature([RolePermissionEntity, TenantMembershipEntity]),
   ],

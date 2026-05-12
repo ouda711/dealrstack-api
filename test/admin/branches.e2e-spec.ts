@@ -13,6 +13,8 @@ describe('Branches Module', () => {
   let salespersonToken: string;
   let nairobiTenantId: number;
   let mombasaTenantId: number;
+  let nairobiManagerId: number;
+  let mombasaManagerId: number;
 
   beforeAll(async () => {
     await request(app)
@@ -44,6 +46,30 @@ describe('Branches Module', () => {
       .then(({ body }) => {
         salespersonToken = body.token;
       });
+
+    await request(app)
+      .get(`/api/v1/tenants/${nairobiTenantId}/branches`)
+      .set('x-tenant-id', String(nairobiTenantId))
+      .auth(tenantAdminToken, {
+        type: 'bearer',
+      })
+      .expect(200)
+      .then(({ body }) => {
+        nairobiManagerId = body.find((branch) => branch.code === 'WST')?.manager
+          ?.id;
+      });
+
+    await request(app)
+      .get(`/api/v1/tenants/${mombasaTenantId}/branches`)
+      .set('x-tenant-id', String(mombasaTenantId))
+      .auth(tenantAdminToken, {
+        type: 'bearer',
+      })
+      .expect(200)
+      .then(({ body }) => {
+        mombasaManagerId = body.find((branch) => branch.code === 'NYL')?.manager
+          ?.id;
+      });
   });
 
   it('should list seeded branches for the selected tenant', () => {
@@ -62,7 +88,10 @@ describe('Branches Module', () => {
         expect(
           body.every((branch) => branch.tenant.id === nairobiTenantId),
         ).toBe(true);
-        expect(westlandsBranch.managerName).toBe('Grace Wanjiku');
+        expect(westlandsBranch.manager.email).toBe(
+          'grace@nairobi-auto-hub.co.ke',
+        );
+        expect(westlandsBranch.manager.firstName).toBe('Grace');
         expect(westlandsBranch.openingHours).toContain('Mon-Sat');
       });
   });
@@ -98,17 +127,36 @@ describe('Branches Module', () => {
         city: 'Nairobi',
         address: 'Argwings Kodhek Road, Kilimani',
         phone: '+254700000301',
-        managerName: 'Mercy Njeri',
-        managerPhone: '+254700000302',
-        managerEmail: 'mercy@nairobi-auto-hub.co.ke',
+        managerId: nairobiManagerId,
         openingHours: 'Mon-Sat, 9:00 AM - 6:00 PM',
       })
       .expect(201)
       .expect(({ body }) => {
         expect(body.code).toBe(branchCode);
         expect(body.tenant.id).toBe(nairobiTenantId);
-        expect(body.managerName).toBe('Mercy Njeri');
+        expect(body.manager.id).toBe(nairobiManagerId);
         expect(body.openingHours).toContain('9:00 AM');
+      });
+  });
+
+  it('should reject a manager outside the branch tenant', () => {
+    return request(app)
+      .post(`/api/v1/tenants/${nairobiTenantId}/branches`)
+      .set('x-tenant-id', String(nairobiTenantId))
+      .auth(tenantAdminToken, {
+        type: 'bearer',
+      })
+      .send({
+        name: 'Invalid Manager Branch',
+        code: `BAD-${Date.now()}`,
+        city: 'Nairobi',
+        managerId: mombasaManagerId,
+      })
+      .expect(422)
+      .expect(({ body }) => {
+        expect(body.errors.managerId).toBe(
+          'branchManagerMustBeActiveTenantMember',
+        );
       });
   });
 

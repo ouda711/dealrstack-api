@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Tenant } from '../../tenants/domain/tenant';
+import { User } from '../../users/domain/user';
 
 export class Branch {
   @ApiProperty({
@@ -47,22 +48,11 @@ export class Branch {
   phone?: string | null;
 
   @ApiPropertyOptional({
-    example: 'Grace Wanjiku',
-    type: String,
+    type: () => User,
+    description:
+      'User assigned as the manager for this branch. The user must be an active member of the same tenant.',
   })
-  managerName?: string | null;
-
-  @ApiPropertyOptional({
-    example: '+254700000111',
-    type: String,
-  })
-  managerPhone?: string | null;
-
-  @ApiPropertyOptional({
-    example: 'grace@nairobi-auto-hub.co.ke',
-    type: String,
-  })
-  managerEmail?: string | null;
+  manager?: Pick<User, 'id' | 'email' | 'firstName' | 'lastName'> | null;
 
   @ApiPropertyOptional({
     example: 'Mon-Sat, 8:30 AM - 6:00 PM',

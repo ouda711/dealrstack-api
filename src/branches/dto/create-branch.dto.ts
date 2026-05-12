@@ -1,5 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  IsBoolean,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
 export class CreateBranchDto {
   @ApiProperty({
@@ -48,31 +55,16 @@ export class CreateBranchDto {
   phone?: string | null;
 
   @ApiPropertyOptional({
-    example: 'Grace Wanjiku',
-    type: String,
-    description: 'Optional branch manager display name.',
+    example: 4,
+    type: Number,
+    nullable: true,
+    description:
+      'Optional user ID for the branch manager. The user must be an active member of this tenant.',
   })
   @IsOptional()
-  @IsString()
-  managerName?: string | null;
-
-  @ApiPropertyOptional({
-    example: '+254700000111',
-    type: String,
-    description: 'Optional branch manager contact phone.',
-  })
-  @IsOptional()
-  @IsString()
-  managerPhone?: string | null;
-
-  @ApiPropertyOptional({
-    example: 'grace@nairobi-auto-hub.co.ke',
-    type: String,
-    description: 'Optional branch manager email.',
-  })
-  @IsOptional()
-  @IsString()
-  managerEmail?: string | null;
+  @Type(() => Number)
+  @IsInt()
+  managerId?: number | null;
 
   @ApiPropertyOptional({
     example: 'Mon-Sat, 8:30 AM - 6:00 PM',

@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { BranchEntity } from '../../../../branches/infrastructure/persistence/relational/entities/branch.entity';
 import { TenantEntity } from '../../../../tenants/infrastructure/persistence/relational/entities/tenant.entity';
+import { UserEntity } from '../../../../users/infrastructure/persistence/relational/entities/user.entity';
 
 const demoBranches = [
   {
@@ -12,9 +13,7 @@ const demoBranches = [
     city: 'Nairobi',
     address: 'Waiyaki Way, Westlands',
     phone: '+254700000101',
-    managerName: 'Grace Wanjiku',
-    managerPhone: '+254700000111',
-    managerEmail: 'grace@nairobi-auto-hub.co.ke',
+    managerUserEmail: 'grace@nairobi-auto-hub.co.ke',
     openingHours: 'Mon-Sat, 8:30 AM - 6:00 PM',
   },
   {
@@ -24,9 +23,7 @@ const demoBranches = [
     city: 'Nairobi',
     address: 'Mombasa Road, near ICD',
     phone: '+254700000102',
-    managerName: 'Brian Otieno',
-    managerPhone: '+254700000112',
-    managerEmail: 'brian@nairobi-auto-hub.co.ke',
+    managerUserEmail: 'brian@nairobi-auto-hub.co.ke',
     openingHours: 'Mon-Sat, 9:00 AM - 6:00 PM',
   },
   {
@@ -36,9 +33,7 @@ const demoBranches = [
     city: 'Mombasa',
     address: 'Links Road, Nyali',
     phone: '+254700000201',
-    managerName: 'Amina Bakari',
-    managerPhone: '+254700000211',
-    managerEmail: 'amina@mombasa-motors.co.ke',
+    managerUserEmail: 'amina@mombasa-motors.co.ke',
     openingHours: 'Mon-Sat, 8:30 AM - 5:30 PM',
   },
   {
@@ -48,9 +43,7 @@ const demoBranches = [
     city: 'Mombasa',
     address: 'Tom Mboya Avenue, Tudor',
     phone: '+254700000202',
-    managerName: 'Hassan Mwinyi',
-    managerPhone: '+254700000212',
-    managerEmail: 'hassan@mombasa-motors.co.ke',
+    managerUserEmail: 'hassan@mombasa-motors.co.ke',
     openingHours: 'Mon-Fri, 9:00 AM - 6:00 PM',
   },
 ];
@@ -62,6 +55,8 @@ export class BranchSeedService {
     private readonly branchRepository: Repository<BranchEntity>,
     @InjectRepository(TenantEntity)
     private readonly tenantRepository: Repository<TenantEntity>,
+    @InjectRepository(UserEntity)
+    private readonly userRepository: Repository<UserEntity>,
   ) {}
 
   async run() {
@@ -75,6 +70,12 @@ export class BranchSeedService {
       if (!tenant) {
         continue;
       }
+
+      const manager = await this.userRepository.findOne({
+        where: {
+          email: branch.managerUserEmail,
+        },
+      });
 
       const exists = await this.branchRepository.findOne({
         where: {
@@ -94,9 +95,7 @@ export class BranchSeedService {
             city: branch.city,
             address: branch.address,
             phone: branch.phone,
-            managerName: branch.managerName,
-            managerPhone: branch.managerPhone,
-            managerEmail: branch.managerEmail,
+            manager,
             openingHours: branch.openingHours,
             isActive: true,
           }),
@@ -105,9 +104,7 @@ export class BranchSeedService {
         await this.branchRepository.save(
           this.branchRepository.create({
             ...exists,
-            managerName: branch.managerName,
-            managerPhone: branch.managerPhone,
-            managerEmail: branch.managerEmail,
+            manager,
             openingHours: branch.openingHours,
           }),
         );
