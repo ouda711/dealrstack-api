@@ -14,6 +14,7 @@ import {
 import { AuthService } from './auth.service';
 import { ApiBearerAuth, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { AuthEmailLoginDto } from './dto/auth-email-login.dto';
+import { AuthAcceptInviteDto } from './dto/auth-accept-invite.dto';
 import { AuthForgotPasswordDto } from './dto/auth-forgot-password.dto';
 import { AuthConfirmEmailDto } from './dto/auth-confirm-email.dto';
 import { AuthResetPasswordDto } from './dto/auth-reset-password.dto';
@@ -83,6 +84,14 @@ export class AuthController {
       resetPasswordDto.hash,
       resetPasswordDto.password,
     );
+  }
+
+  @Post('invite/accept')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  acceptTenantInvite(
+    @Body() acceptInviteDto: AuthAcceptInviteDto,
+  ): Promise<void> {
+    return this.service.acceptTenantInvite(acceptInviteDto);
   }
 
   @ApiBearerAuth()

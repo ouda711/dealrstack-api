@@ -1,13 +1,36 @@
+import { JwtService } from '@nestjs/jwt';
 import request from 'supertest';
 import { ADMIN_EMAIL, ADMIN_PASSWORD, APP_URL } from '../utils/constants';
 
 describe('Access Module', () => {
   const app = APP_URL;
+  const jwtService = new JwtService();
   let apiToken: string;
   let branchManagerToken: string;
   let tenantId: number;
   let superAdminRoleId: number;
   let salespersonRoleId: number;
+
+  function createInviteHash({
+    tenantId,
+    membershipId,
+    userId,
+  }: {
+    tenantId: number;
+    membershipId: number;
+    userId: number;
+  }) {
+    return jwtService.sign(
+      {
+        inviteTenantId: tenantId,
+        inviteMembershipId: membershipId,
+        inviteUserId: userId,
+      },
+      {
+        secret: process.env.AUTH_CONFIRM_EMAIL_SECRET,
+      },
+    );
+  }
 
   beforeAll(async () => {
     await request(app)
@@ -297,6 +320,91 @@ describe('Access Module', () => {
       .expect(422)
       .expect(({ body }) => {
         expect(body.errors.email).toBe('tenantMembershipAlreadyExists');
+      });
+  });
+
+  it('should accept a tenant invite and activate membership access', async () => {
+    const inviteEmail = `accept-invite.${Date.now()}@dealrstack.com`;
+    const inviteResponse = await request(app)
+      .post(`/api/v1/access/tenants/${tenantId}/memberships`)
+      .auth(apiToken, {
+        type: 'bearer',
+      })
+      .send({
+        email: inviteEmail,
+        firstName: 'Accepted',
+        lastName: 'Invite',
+        roleId: salespersonRoleId,
+        title: 'Sales Trainee',
+      })
+      .expect(201);
+    const inviteHash = createInviteHash({
+      tenantId,
+      membershipId: inviteResponse.body.id,
+      userId: inviteResponse.body.user.id,
+    });
+
+    await request(app)
+      .post('/api/v1/auth/invite/accept')
+      .send({
+        hash: inviteHash,
+        password: 'secret123',
+      })
+      .expect(204);
+
+    await request(app)
+      .post('/api/v1/auth/email/login')
+      .send({
+        email: inviteEmail,
+        password: 'secret123',
+        tenantId,
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.user.access.currentTenant.id).toBe(tenantId);
+        expect(body.user.access.currentMembership.status).toBe('active');
+        expect(body.user.access.currentTenantRole.key).toBe('salesperson');
+      });
+  });
+
+  it('should reject accepting the same tenant invite twice', async () => {
+    const inviteEmail = `accept-invite-once.${Date.now()}@dealrstack.com`;
+    const inviteResponse = await request(app)
+      .post(`/api/v1/access/tenants/${tenantId}/memberships`)
+      .auth(apiToken, {
+        type: 'bearer',
+      })
+      .send({
+        email: inviteEmail,
+        firstName: 'Single',
+        lastName: 'Use',
+        roleId: salespersonRoleId,
+        title: 'Sales Trainee',
+      })
+      .expect(201);
+    const inviteHash = createInviteHash({
+      tenantId,
+      membershipId: inviteResponse.body.id,
+      userId: inviteResponse.body.user.id,
+    });
+
+    await request(app)
+      .post('/api/v1/auth/invite/accept')
+      .send({
+        hash: inviteHash,
+        password: 'secret123',
+      })
+      .expect(204);
+
+    return request(app)
+      .post('/api/v1/auth/invite/accept')
+      .send({
+        hash: inviteHash,
+        password: 'secret123',
+      })
+      .expect(422)
+      .expect(({ body }) => {
+        expect(body.errors.hash).toBe('tenantInviteAlreadyAccepted');
       });
   });
 

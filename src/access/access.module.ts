@@ -1,7 +1,9 @@
 import { Global, Module } from '@nestjs/common';
+import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuditTrailModule } from '../audit-trail/audit-trail.module';
 import { BranchEntity } from '../branches/infrastructure/persistence/relational/entities/branch.entity';
+import { MailModule } from '../mail/mail.module';
 import { RoleEntity } from '../roles/infrastructure/persistence/relational/entities/role.entity';
 import { UserEntity } from '../users/infrastructure/persistence/relational/entities/user.entity';
 import { AccessController } from './access.controller';
@@ -15,6 +17,8 @@ import { PermissionsGuard } from './permissions.guard';
 @Module({
   imports: [
     AuditTrailModule,
+    JwtModule.register({}),
+    MailModule,
     TypeOrmModule.forFeature([
       PermissionEntity,
       BranchEntity,

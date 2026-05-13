@@ -119,6 +119,48 @@ export class MailService {
     });
   }
 
+  async tenantMemberInvite(
+    mailData: MailData<{
+      hash: string;
+      tenantName?: string | null;
+      roleName?: string | null;
+    }>,
+  ): Promise<void> {
+    const title = 'Accept your DealrStack invitation';
+    const url = new URL(
+      this.configService.getOrThrow('app.frontendDomain', {
+        infer: true,
+      }) + '/accept-invite',
+    );
+    url.searchParams.set('hash', mailData.data.hash);
+
+    await this.mailerService.sendMail({
+      to: mailData.to,
+      subject: title,
+      text: `${url.toString()} ${title}`,
+      templatePath: path.join(
+        this.configService.getOrThrow('app.workingDirectory', {
+          infer: true,
+        }),
+        'src',
+        'mail',
+        'mail-templates',
+        'activation.hbs',
+      ),
+      context: {
+        title,
+        url: url.toString(),
+        actionTitle: 'Accept invitation',
+        app_name: this.configService.get('app.name', { infer: true }),
+        text1: `You have been invited to join ${mailData.data.tenantName || 'a DealrStack workspace'}.`,
+        text2: mailData.data.roleName
+          ? `Your workspace role is ${mailData.data.roleName}.`
+          : 'Your workspace role has been assigned.',
+        text3: 'Set your password to activate your account.',
+      },
+    });
+  }
+
   async confirmNewEmail(mailData: MailData<{ hash: string }>): Promise<void> {
     const i18n = I18nContext.current();
     let emailConfirmTitle: MaybeType<string>;

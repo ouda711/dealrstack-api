@@ -11,6 +11,7 @@ import { randomStringGenerator } from '@nestjs/common/utils/random-string-genera
 import { JwtService } from '@nestjs/jwt';
 import bcrypt from 'bcryptjs';
 import { AuthEmailLoginDto } from './dto/auth-email-login.dto';
+import { AuthAcceptInviteDto } from './dto/auth-accept-invite.dto';
 import { AuthUpdateDto } from './dto/auth-update.dto';
 import { AuthProvidersEnum } from './auth-providers.enum';
 import { SocialInterface } from '../social/interfaces/social.interface';
@@ -391,6 +392,70 @@ export class AuthService {
     });
 
     await this.usersService.update(user.id, user);
+  }
+
+  async acceptTenantInvite(dto: AuthAcceptInviteDto): Promise<void> {
+    let inviteData: {
+      inviteTenantId: number;
+      inviteMembershipId: number;
+      inviteUserId: number;
+    };
+
+    try {
+      inviteData = await this.jwtService.verifyAsync<{
+        inviteTenantId: number;
+        inviteMembershipId: number;
+        inviteUserId: number;
+      }>(dto.hash, {
+        secret: this.configService.getOrThrow('auth.confirmEmailSecret', {
+          infer: true,
+        }),
+      });
+    } catch {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        errors: {
+          hash: `invalidHash`,
+        },
+      });
+    }
+
+    await this.accessService.getTenantInviteMembershipOrThrow({
+      tenantId: inviteData.inviteTenantId,
+      membershipId: inviteData.inviteMembershipId,
+      userId: inviteData.inviteUserId,
+    });
+
+    const user = await this.usersService.findById(inviteData.inviteUserId);
+
+    if (!user) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        errors: {
+          hash: `notFound`,
+        },
+      });
+    }
+
+    await this.sessionService.deleteByUserId({
+      userId: user.id,
+    });
+
+    await this.usersService.update(user.id, {
+      password: dto.password,
+      status: {
+        id: StatusEnum.active,
+      },
+      activeTenant: {
+        id: inviteData.inviteTenantId,
+      },
+    });
+
+    await this.accessService.activateTenantInvite({
+      tenantId: inviteData.inviteTenantId,
+      membershipId: inviteData.inviteMembershipId,
+      userId: inviteData.inviteUserId,
+    });
   }
 
   async me(

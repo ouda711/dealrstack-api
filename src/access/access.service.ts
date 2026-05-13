@@ -5,9 +5,13 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { AuthProvidersEnum } from '../auth/auth-providers.enum';
+import { AllConfigType } from '../config/config.type';
+import { MailService } from '../mail/mail.service';
 import { BranchEntity } from '../branches/infrastructure/persistence/relational/entities/branch.entity';
 import {
   RoleEntity,
@@ -90,6 +94,9 @@ export class AccessService {
     @InjectRepository(UserEntity)
     private readonly userRepository: Repository<UserEntity>,
     private readonly auditTrailService: AuditTrailService,
+    private readonly configService: ConfigService<AllConfigType>,
+    private readonly jwtService: JwtService,
+    private readonly mailService: MailService,
   ) {}
 
   findPermissions(): Promise<PermissionEntity[]> {
@@ -422,6 +429,12 @@ export class AccessService {
       });
     }
 
+    const inviteHash = await this.createTenantInviteHash({
+      tenantId,
+      membershipId: membership.id,
+      userId: user.id,
+    });
+
     await this.auditTrailService.record({
       tenantId,
       branchId: inviteTenantMemberDto.branchId,
@@ -441,7 +454,96 @@ export class AccessService {
       },
     });
 
+    await this.mailService.tenantMemberInvite({
+      to: inviteTenantMemberDto.email,
+      data: {
+        hash: inviteHash,
+        tenantName: membership.tenant?.name,
+        roleName: role.name,
+      },
+    });
+
     return this.withAssignedBranches(tenantId, [membership]).then(
+      ([membershipWithBranches]) => membershipWithBranches,
+    );
+  }
+
+  async getTenantInviteMembershipOrThrow({
+    tenantId,
+    membershipId,
+    userId,
+  }: {
+    tenantId: number;
+    membershipId: number;
+    userId: number;
+  }): Promise<TenantMembershipEntity> {
+    const membership = await this.tenantMembershipRepository.findOne({
+      where: {
+        id: membershipId,
+        tenant: {
+          id: tenantId,
+        },
+        user: {
+          id: userId,
+        },
+      },
+    });
+
+    if (!membership) {
+      throw new NotFoundException({
+        status: HttpStatus.NOT_FOUND,
+        error: 'tenantInviteNotFound',
+      });
+    }
+
+    if (membership.status !== TenantMembershipStatus.Invited) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        errors: {
+          hash: 'tenantInviteAlreadyAccepted',
+        },
+      });
+    }
+
+    return membership;
+  }
+
+  async activateTenantInvite({
+    tenantId,
+    membershipId,
+    userId,
+  }: {
+    tenantId: number;
+    membershipId: number;
+    userId: number;
+  }): Promise<TenantMembershipWithBranches> {
+    const membership = await this.getTenantInviteMembershipOrThrow({
+      tenantId,
+      membershipId,
+      userId,
+    });
+
+    membership.status = TenantMembershipStatus.Active;
+
+    const updatedMembership =
+      await this.tenantMembershipRepository.save(membership);
+
+    await this.auditTrailService.record({
+      tenantId,
+      actor: {
+        id: userId,
+      },
+      action: 'ACCEPT_TEAM_INVITE',
+      description: `${updatedMembership.user.email} accepted the workspace invitation`,
+      metadata: {
+        membershipId,
+        targetUserId: userId,
+        targetUserEmail: updatedMembership.user.email,
+        roleName: updatedMembership.role?.name,
+      },
+    });
+
+    return this.withAssignedBranches(tenantId, [updatedMembership]).then(
       ([membershipWithBranches]) => membershipWithBranches,
     );
   }
@@ -712,6 +814,32 @@ export class AccessService {
     }
 
     return branch;
+  }
+
+  private createTenantInviteHash({
+    tenantId,
+    membershipId,
+    userId,
+  }: {
+    tenantId: number;
+    membershipId: number;
+    userId: number;
+  }): Promise<string> {
+    return this.jwtService.signAsync(
+      {
+        inviteTenantId: tenantId,
+        inviteMembershipId: membershipId,
+        inviteUserId: userId,
+      },
+      {
+        secret: this.configService.getOrThrow('auth.confirmEmailSecret', {
+          infer: true,
+        }),
+        expiresIn: this.configService.getOrThrow('auth.confirmEmailExpires', {
+          infer: true,
+        }),
+      },
+    );
   }
 
   private resolveCurrentMembership(
