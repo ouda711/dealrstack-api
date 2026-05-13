@@ -42,6 +42,13 @@ export const permissionCatalog: PermissionDefinition[] = [
       'Can view team members associated with the user assigned branch context without managing tenant-wide access.',
   },
   {
+    key: 'audit.view',
+    domain: 'audit',
+    label: 'View audit trail',
+    description:
+      'Can view major activity history within the workspace or assigned branch jurisdiction.',
+  },
+  {
     key: 'branches.view',
     domain: 'branches',
     label: 'View branches',
@@ -188,6 +195,7 @@ export const builtInTenantRolePresets = [
       'Can run daily operations, manage teams, assignments, pipeline, bookings, inventory, and reports.',
     permissionKeys: [
       'team.view-branch',
+      'audit.view',
       'branches.view',
       'branches.manage',
       'customers.manage',

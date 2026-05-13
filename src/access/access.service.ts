@@ -20,6 +20,7 @@ import {
   TenantMembershipStatus,
 } from './infrastructure/persistence/relational/entities/tenant-membership.entity';
 import { UpdateTenantMembershipDto } from './dto/update-tenant-membership.dto';
+import { AuditTrailService } from '../audit-trail/audit-trail.service';
 
 type PermissionGrant = Pick<
   PermissionEntity,
@@ -81,6 +82,7 @@ export class AccessService {
     private readonly tenantMembershipRepository: Repository<TenantMembershipEntity>,
     @InjectRepository(BranchEntity)
     private readonly branchRepository: Repository<BranchEntity>,
+    private readonly auditTrailService: AuditTrailService,
   ) {}
 
   findPermissions(): Promise<PermissionEntity[]> {
@@ -269,6 +271,10 @@ export class AccessService {
       });
     }
 
+    const previousRoleName = membership.role?.name;
+    const previousStatus = membership.status;
+    const previousTitle = membership.title;
+
     if (updateTenantMembershipDto.roleId !== undefined) {
       membership.role = await this.getTenantRoleOrThrow(
         tenantId,
@@ -286,6 +292,39 @@ export class AccessService {
 
     const updatedMembership =
       await this.tenantMembershipRepository.save(membership);
+    const changes = [
+      previousRoleName !== updatedMembership.role?.name
+        ? `role changed from ${previousRoleName || 'None'} to ${updatedMembership.role?.name || 'None'}`
+        : null,
+      previousStatus !== updatedMembership.status
+        ? `status changed from ${previousStatus} to ${updatedMembership.status}`
+        : null,
+      previousTitle !== updatedMembership.title
+        ? `title changed from ${previousTitle || 'None'} to ${updatedMembership.title || 'None'}`
+        : null,
+    ].filter(Boolean);
+
+    if (changes.length) {
+      await this.auditTrailService.record({
+        tenantId,
+        actor: {
+          id: actor?.id,
+        },
+        action: 'UPDATE_TEAM_MEMBER',
+        description: changes.join('; '),
+        metadata: {
+          membershipId,
+          targetUserId: updatedMembership.user?.id,
+          targetUserEmail: updatedMembership.user?.email,
+          previousRoleName,
+          newRoleName: updatedMembership.role?.name,
+          previousStatus,
+          newStatus: updatedMembership.status,
+          previousTitle,
+          newTitle: updatedMembership.title,
+        },
+      });
+    }
 
     return this.withAssignedBranches(tenantId, [updatedMembership]).then(
       ([membershipWithBranches]) => membershipWithBranches,

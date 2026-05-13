@@ -135,7 +135,7 @@ describe('Auth', () => {
           expect(body.user.access.currentBranch.code).toBe('WST');
           expect(
             body.user.access.permissions.map((permission) => permission.key),
-          ).toEqual(expect.arrayContaining(['team.view-branch']));
+          ).toEqual(expect.arrayContaining(['audit.view', 'team.view-branch']));
           expect(
             body.user.access.permissions.map((permission) => permission.key),
           ).not.toEqual(expect.arrayContaining(['team.manage']));

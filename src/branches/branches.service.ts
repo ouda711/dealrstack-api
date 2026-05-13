@@ -6,6 +6,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { AccessService } from '../access/access.service';
+import { AuditTrailService } from '../audit-trail/audit-trail.service';
 import { RoleEnum } from '../roles/roles.enum';
 import { Tenant } from '../tenants/domain/tenant';
 import { TenantsService } from '../tenants/tenants.service';
@@ -25,6 +26,7 @@ export class BranchesService {
     private readonly branchesRepository: BranchRepository,
     private readonly tenantsService: TenantsService,
     private readonly accessService: AccessService,
+    private readonly auditTrailService: AuditTrailService,
   ) {}
 
   async create(
@@ -40,7 +42,7 @@ export class BranchesService {
       createBranchDto.managerId,
     );
 
-    return this.branchesRepository.create({
+    const branch = await this.branchesRepository.create({
       tenant: {
         id: Number(tenant.id),
         name: tenant.name,
@@ -55,6 +57,24 @@ export class BranchesService {
       openingHours: createBranchDto.openingHours,
       isActive: createBranchDto.isActive ?? true,
     });
+
+    await this.auditTrailService.record({
+      tenantId: Number(tenant.id),
+      branchId: Number(branch.id),
+      actor: {
+        id: actor.id,
+      },
+      action: 'CREATE_BRANCH',
+      description: `branch ${branch.name} (${branch.code}) was created`,
+      metadata: {
+        branchId: branch.id,
+        branchName: branch.name,
+        branchCode: branch.code,
+        managerId: branch.manager?.id,
+      },
+    });
+
+    return branch;
   }
 
   async findByTenantId(tenantId: Tenant['id']): Promise<Branch[]> {
@@ -125,7 +145,37 @@ export class BranchesService {
       payload.isActive = updateBranchDto.isActive;
     }
 
-    return this.branchesRepository.update(Number(tenantId), id, payload);
+    const updatedBranch = await this.branchesRepository.update(
+      Number(tenantId),
+      id,
+      payload,
+    );
+
+    if (updatedBranch) {
+      const changes = this.getBranchChangeDescriptions(
+        existingBranch,
+        updatedBranch,
+      );
+
+      if (changes.length) {
+        await this.auditTrailService.record({
+          tenantId: Number(tenantId),
+          branchId: Number(id),
+          actor: {
+            id: actor.id,
+          },
+          action: 'UPDATE_BRANCH',
+          description: changes.join('; '),
+          metadata: {
+            branchId: id,
+            previous: this.getBranchAuditSnapshot(existingBranch),
+            next: this.getBranchAuditSnapshot(updatedBranch),
+          },
+        });
+      }
+    }
+
+    return updatedBranch;
   }
 
   async remove(
@@ -135,7 +185,70 @@ export class BranchesService {
   ): Promise<void> {
     await this.getTenantOrThrow(tenantId);
     await this.ensureCanManageAllBranches(Number(tenantId), actor);
+    const branch = await this.getBranchOrThrow(tenantId, id);
+
     await this.branchesRepository.remove(Number(tenantId), id);
+    await this.auditTrailService.record({
+      tenantId: Number(tenantId),
+      branchId: Number(id),
+      actor: {
+        id: actor.id,
+      },
+      action: 'DELETE_BRANCH',
+      description: `branch ${branch.name} (${branch.code}) was deleted`,
+      metadata: {
+        branchId: id,
+        branchName: branch.name,
+        branchCode: branch.code,
+      },
+    });
+  }
+
+  private getBranchChangeDescriptions(
+    previous: Branch,
+    next: Branch,
+  ): string[] {
+    return [
+      previous.name !== next.name
+        ? `name changed from ${previous.name} to ${next.name}`
+        : null,
+      previous.code !== next.code
+        ? `branch code changed from ${previous.code} to ${next.code}`
+        : null,
+      previous.city !== next.city
+        ? `city changed from ${previous.city} to ${next.city}`
+        : null,
+      previous.address !== next.address
+        ? `address changed from ${previous.address || 'None'} to ${next.address || 'None'}`
+        : null,
+      previous.phone !== next.phone
+        ? `phone changed from ${previous.phone || 'None'} to ${next.phone || 'None'}`
+        : null,
+      previous.openingHours !== next.openingHours
+        ? `operating hours changed from ${previous.openingHours || 'None'} to ${next.openingHours || 'None'}`
+        : null,
+      Number(previous.manager?.id || 0) !== Number(next.manager?.id || 0)
+        ? `branch manager changed from ${previous.manager?.email || 'None'} to ${next.manager?.email || 'None'}`
+        : null,
+      previous.isActive !== next.isActive
+        ? `active status changed from ${previous.isActive} to ${next.isActive}`
+        : null,
+    ].filter(Boolean) as string[];
+  }
+
+  private getBranchAuditSnapshot(branch: Branch): Record<string, unknown> {
+    return {
+      id: branch.id,
+      name: branch.name,
+      code: branch.code,
+      city: branch.city,
+      address: branch.address,
+      phone: branch.phone,
+      openingHours: branch.openingHours,
+      isActive: branch.isActive,
+      managerId: branch.manager?.id,
+      managerEmail: branch.manager?.email,
+    };
   }
 
   private async getTenantOrThrow(tenantId: Tenant['id']): Promise<Tenant> {

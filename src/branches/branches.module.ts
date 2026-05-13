@@ -4,6 +4,7 @@ import { AccessModule } from '../access/access.module';
 import { RolePermissionEntity } from '../access/infrastructure/persistence/relational/entities/role-permission.entity';
 import { TenantMembershipEntity } from '../access/infrastructure/persistence/relational/entities/tenant-membership.entity';
 import { PermissionsGuard } from '../access/permissions.guard';
+import { AuditTrailModule } from '../audit-trail/audit-trail.module';
 import { TenantsModule } from '../tenants/tenants.module';
 import { BranchesController } from './branches.controller';
 import { BranchesService } from './branches.service';
@@ -13,6 +14,7 @@ import { RelationalBranchPersistenceModule } from './infrastructure/persistence/
   imports: [
     RelationalBranchPersistenceModule,
     AccessModule,
+    AuditTrailModule,
     TenantsModule,
     TypeOrmModule.forFeature([RolePermissionEntity, TenantMembershipEntity]),
   ],

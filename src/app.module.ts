@@ -30,6 +30,7 @@ import { DatabaseConfig } from './database/config/database-config.type';
 import { TenantsModule } from './tenants/tenants.module';
 import { AccessModule } from './access/access.module';
 import { BranchesModule } from './branches/branches.module';
+import { AuditTrailModule } from './audit-trail/audit-trail.module';
 
 // <database-block>
 const infrastructureDatabaseModule = (databaseConfig() as DatabaseConfig)
@@ -98,6 +99,7 @@ const infrastructureDatabaseModule = (databaseConfig() as DatabaseConfig)
     TenantsModule,
     AccessModule,
     BranchesModule,
+    AuditTrailModule,
   ],
 })
 export class AppModule {}

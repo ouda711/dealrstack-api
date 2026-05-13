@@ -1,5 +1,6 @@
 import { Global, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuditTrailModule } from '../audit-trail/audit-trail.module';
 import { BranchEntity } from '../branches/infrastructure/persistence/relational/entities/branch.entity';
 import { RoleEntity } from '../roles/infrastructure/persistence/relational/entities/role.entity';
 import { AccessController } from './access.controller';
@@ -12,6 +13,7 @@ import { PermissionsGuard } from './permissions.guard';
 @Global()
 @Module({
   imports: [
+    AuditTrailModule,
     TypeOrmModule.forFeature([
       PermissionEntity,
       BranchEntity,
