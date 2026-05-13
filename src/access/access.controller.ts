@@ -1,15 +1,20 @@
 import {
+  Body,
   Controller,
   Get,
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Query,
+  Request,
   UseGuards,
 } from '@nestjs/common';
 import {
+  ApiBody,
   ApiBearerAuth,
   ApiOkResponse,
+  ApiOperation,
   ApiParam,
   ApiTags,
 } from '@nestjs/swagger';
@@ -18,6 +23,7 @@ import { RoleEntity } from '../roles/infrastructure/persistence/relational/entit
 import { PermissionEntity } from './infrastructure/persistence/relational/entities/permission.entity';
 import { TenantMembershipEntity } from './infrastructure/persistence/relational/entities/tenant-membership.entity';
 import { AccessService } from './access.service';
+import { UpdateTenantMembershipDto } from './dto/update-tenant-membership.dto';
 import { RequirePermissions } from './permissions.decorator';
 import { PermissionsGuard } from './permissions.guard';
 
@@ -47,11 +53,15 @@ export class AccessController {
     isArray: true,
   })
   @Get('roles')
-  @RequirePermissions('team.manage')
+  @RequirePermissions('team.manage', 'team.view-branch')
   @HttpCode(HttpStatus.OK)
-  findRoles(@Query('tenantId') tenantId?: string): Promise<RoleEntity[]> {
+  findRoles(
+    @Query('tenantId') tenantId?: string,
+    @Request() request?: { user?: { id: number; role?: { id: number } } },
+  ): Promise<RoleEntity[]> {
     return this.accessService.findRoles(
       tenantId ? Number(tenantId) : undefined,
+      request?.user,
     );
   }
 
@@ -60,7 +70,7 @@ export class AccessController {
     isArray: true,
   })
   @Get('roles/:id/permissions')
-  @RequirePermissions('team.manage')
+  @RequirePermissions('team.manage', 'team.view-branch')
   @HttpCode(HttpStatus.OK)
   @ApiParam({
     name: 'id',
@@ -76,8 +86,13 @@ export class AccessController {
     isArray: true,
   })
   @Get('tenants/:tenantId/memberships')
-  @RequirePermissions('team.manage')
+  @RequirePermissions('team.manage', 'team.view-branch')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'List tenant team memberships',
+    description:
+      'Returns tenant members, their roles, status, titles, and branch assignment context.',
+  })
   @ApiParam({
     name: 'tenantId',
     type: String,
@@ -85,7 +100,52 @@ export class AccessController {
   })
   findTenantMemberships(
     @Param('tenantId') tenantId: string,
+    @Request() request: { user?: { id: number; role?: { id: number } } },
   ): Promise<TenantMembershipEntity[]> {
-    return this.accessService.findTenantMemberships(Number(tenantId));
+    return this.accessService.findTenantMemberships(
+      Number(tenantId),
+      request.user,
+      {
+        activeOnly: false,
+      },
+    );
+  }
+
+  @ApiOkResponse({
+    type: TenantMembershipEntity,
+  })
+  @Patch('tenants/:tenantId/memberships/:membershipId')
+  @RequirePermissions('team.manage')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Update a tenant team membership',
+    description:
+      'Updates a member role, title, or membership status within the selected tenant workspace.',
+  })
+  @ApiBody({
+    type: UpdateTenantMembershipDto,
+  })
+  @ApiParam({
+    name: 'tenantId',
+    type: String,
+    required: true,
+  })
+  @ApiParam({
+    name: 'membershipId',
+    type: String,
+    required: true,
+  })
+  updateTenantMembership(
+    @Param('tenantId') tenantId: string,
+    @Param('membershipId') membershipId: string,
+    @Body() updateTenantMembershipDto: UpdateTenantMembershipDto,
+    @Request() request: { user?: { id: number; role?: { id: number } } },
+  ): Promise<TenantMembershipEntity> {
+    return this.accessService.updateTenantMembership(
+      Number(tenantId),
+      Number(membershipId),
+      updateTenantMembershipDto,
+      request.user,
+    );
   }
 }

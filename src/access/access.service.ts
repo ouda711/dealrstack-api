@@ -1,6 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import {
+  HttpStatus,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { BranchEntity } from '../branches/infrastructure/persistence/relational/entities/branch.entity';
 import {
   RoleEntity,
@@ -13,12 +19,19 @@ import {
   TenantMembershipEntity,
   TenantMembershipStatus,
 } from './infrastructure/persistence/relational/entities/tenant-membership.entity';
+import { UpdateTenantMembershipDto } from './dto/update-tenant-membership.dto';
 
 type PermissionGrant = Pick<
   PermissionEntity,
   'id' | 'key' | 'domain' | 'label' | 'description'
 >;
 type AccessRole = RoleEntity | Role;
+type AccessActor = {
+  id?: number | string;
+  role?: {
+    id?: number | string;
+  } | null;
+};
 
 type UserTenantMembershipAccess = {
   id: number;
@@ -37,6 +50,10 @@ type UserBranchAccess = {
   id: number;
   name: string;
   code: string;
+};
+
+export type TenantMembershipWithBranches = TenantMembershipEntity & {
+  assignedBranches: UserBranchAccess[];
 };
 
 export type UserAccessContext = {
@@ -75,8 +92,15 @@ export class AccessService {
     });
   }
 
-  async findRoles(tenantId?: number): Promise<RoleEntity[]> {
+  async findRoles(
+    tenantId?: number,
+    actor?: AccessActor,
+  ): Promise<RoleEntity[]> {
     if (!tenantId) {
+      if (!(await this.hasPlatformManagePermission(actor))) {
+        return [];
+      }
+
       return this.roleRepository.find({
         where: {
           scope: RoleScope.Platform,
@@ -89,25 +113,26 @@ export class AccessService {
       });
     }
 
-    return this.roleRepository.find({
-      where: [
-        {
-          scope: RoleScope.Platform,
-          isActive: true,
+    const roles = await this.roleRepository.find({
+      where: {
+        scope: RoleScope.Tenant,
+        tenant: {
+          id: tenantId,
         },
-        {
-          scope: RoleScope.Tenant,
-          tenant: {
-            id: tenantId,
-          },
-          isActive: true,
-        },
-      ],
+        isActive: true,
+      },
       order: {
-        scope: 'ASC',
         name: 'ASC',
       },
     });
+
+    if (await this.canViewTenantTeam(tenantId, actor)) {
+      return roles;
+    }
+
+    return roles.filter(
+      (role) => !['owner', 'tenant-admin'].includes(role.key || ''),
+    );
   }
 
   async findRolePermissions(roleId: number): Promise<PermissionEntity[]> {
@@ -175,18 +200,96 @@ export class AccessService {
     };
   }
 
-  findTenantMemberships(tenantId: number): Promise<TenantMembershipEntity[]> {
-    return this.tenantMembershipRepository.find({
+  async findTenantMemberships(
+    tenantId: number,
+    actor?: AccessActor,
+    options: { activeOnly?: boolean } = {},
+  ): Promise<TenantMembershipWithBranches[]> {
+    const canViewTenantTeam = actor
+      ? await this.canViewTenantTeam(tenantId, actor)
+      : true;
+    const visibleUserIds = canViewTenantTeam
+      ? undefined
+      : await this.findBranchScopedVisibleUserIds(tenantId, actor);
+
+    if (visibleUserIds && !visibleUserIds.length) {
+      return [];
+    }
+
+    const memberships = await this.tenantMembershipRepository.find({
       where: {
         tenant: {
           id: tenantId,
         },
-        status: TenantMembershipStatus.Active,
+        ...(visibleUserIds
+          ? {
+              user: {
+                id: In(visibleUserIds),
+              },
+            }
+          : {}),
+        ...(options.activeOnly === false
+          ? {}
+          : { status: TenantMembershipStatus.Active }),
       },
       order: {
         createdAt: 'ASC',
       },
     });
+
+    return this.withAssignedBranches(tenantId, memberships);
+  }
+
+  async updateTenantMembership(
+    tenantId: number,
+    membershipId: number,
+    updateTenantMembershipDto: UpdateTenantMembershipDto,
+    actor?: AccessActor,
+  ): Promise<TenantMembershipWithBranches> {
+    if (!(await this.canViewTenantTeam(tenantId, actor))) {
+      throw new ForbiddenException({
+        status: HttpStatus.FORBIDDEN,
+        error: 'tenantMembershipManageForbidden',
+      });
+    }
+
+    const membership = await this.tenantMembershipRepository.findOne({
+      where: {
+        id: membershipId,
+        tenant: {
+          id: tenantId,
+        },
+      },
+    });
+
+    if (!membership) {
+      throw new NotFoundException({
+        status: HttpStatus.NOT_FOUND,
+        error: 'tenantMembershipNotFound',
+      });
+    }
+
+    if (updateTenantMembershipDto.roleId !== undefined) {
+      membership.role = await this.getTenantRoleOrThrow(
+        tenantId,
+        updateTenantMembershipDto.roleId,
+      );
+    }
+
+    if (updateTenantMembershipDto.title !== undefined) {
+      membership.title = updateTenantMembershipDto.title?.trim() || null;
+    }
+
+    if (updateTenantMembershipDto.status !== undefined) {
+      membership.status = updateTenantMembershipDto.status;
+    }
+
+    const updatedMembership =
+      await this.tenantMembershipRepository.save(membership);
+
+    return this.withAssignedBranches(tenantId, [updatedMembership]).then(
+      ([membershipWithBranches]) => membershipWithBranches,
+    );
   }
 
   private async findUserTenantMembershipAccess(
@@ -243,6 +346,193 @@ export class AccessService {
       name: branch.name,
       code: branch.code,
     }));
+  }
+
+  private async hasPlatformManagePermission(
+    actor?: AccessActor,
+  ): Promise<boolean> {
+    const platformRoleId = Number(actor?.role?.id);
+
+    if (!platformRoleId) {
+      return false;
+    }
+
+    const permissions = await this.findRolePermissions(platformRoleId);
+
+    return permissions.some(
+      (permission) => permission.key === 'platform.manage',
+    );
+  }
+
+  private async canViewTenantTeam(
+    tenantId: number,
+    actor?: AccessActor,
+  ): Promise<boolean> {
+    if (await this.hasPlatformManagePermission(actor)) {
+      return true;
+    }
+
+    const userId = Number(actor?.id);
+
+    if (!userId) {
+      return false;
+    }
+
+    const membership = await this.tenantMembershipRepository.findOne({
+      where: {
+        user: {
+          id: userId,
+        },
+        tenant: {
+          id: tenantId,
+        },
+        status: TenantMembershipStatus.Active,
+      },
+    });
+
+    if (!membership?.role?.id) {
+      return false;
+    }
+
+    const permissions = await this.findRolePermissions(membership.role.id);
+
+    return permissions.some(
+      (permission) => permission.key === 'branches.manage-all',
+    );
+  }
+
+  private async findBranchScopedVisibleUserIds(
+    tenantId: number,
+    actor?: AccessActor,
+  ): Promise<number[]> {
+    const userId = Number(actor?.id);
+
+    if (!userId) {
+      return [];
+    }
+
+    const actorBranches = await this.branchRepository.find({
+      where: {
+        tenant: {
+          id: tenantId,
+        },
+        manager: {
+          id: userId,
+        },
+        isActive: true,
+      },
+    });
+    const actorBranchIds = actorBranches.map((branch) => branch.id);
+
+    if (!actorBranchIds.length) {
+      return [userId];
+    }
+
+    const branchUsers = await this.branchRepository.find({
+      where: {
+        tenant: {
+          id: tenantId,
+        },
+        id: In(actorBranchIds),
+        isActive: true,
+      },
+    });
+    const branchManagerIds = branchUsers
+      .map((branch) => branch.manager?.id)
+      .filter(Boolean) as number[];
+
+    return Array.from(new Set([userId, ...branchManagerIds]));
+  }
+
+  private async withAssignedBranches(
+    tenantId: number,
+    memberships: TenantMembershipEntity[],
+  ): Promise<TenantMembershipWithBranches[]> {
+    const userIds = memberships
+      .map((membership) => membership.user?.id)
+      .filter(Boolean) as number[];
+
+    if (!userIds.length) {
+      return memberships.map((membership) =>
+        Object.assign(membership, { assignedBranches: [] }),
+      );
+    }
+
+    const branches = await this.branchRepository.find({
+      where: {
+        tenant: {
+          id: tenantId,
+        },
+        manager: {
+          id: In(userIds),
+        },
+        isActive: true,
+      },
+      order: {
+        code: 'ASC',
+      },
+    });
+    const branchesByManagerId = branches.reduce(
+      (acc, branch) => {
+        const managerId = branch.manager?.id;
+
+        if (!managerId) {
+          return acc;
+        }
+
+        acc[managerId] = acc[managerId] || [];
+        acc[managerId].push({
+          id: branch.id,
+          name: branch.name,
+          code: branch.code,
+        });
+
+        return acc;
+      },
+      {} as Record<number, UserBranchAccess[]>,
+    );
+
+    return memberships.map((membership) => {
+      const safeUser = { ...membership.user };
+
+      delete safeUser.role;
+      delete safeUser.password;
+
+      return {
+        ...membership,
+        user: safeUser,
+        assignedBranches: branchesByManagerId[membership.user.id] || [],
+      } as TenantMembershipWithBranches;
+    });
+  }
+
+  private async getTenantRoleOrThrow(
+    tenantId: number,
+    roleId: number,
+  ): Promise<RoleEntity> {
+    const role = await this.roleRepository.findOne({
+      where: {
+        id: roleId,
+      },
+      relations: {
+        tenant: true,
+      },
+    });
+
+    if (
+      !role ||
+      role.scope !== RoleScope.Tenant ||
+      Number(role.tenant?.id) !== tenantId
+    ) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        errors: {
+          roleId: 'tenantRoleNotFound',
+        },
+      });
+    }
+
+    return role;
   }
 
   private resolveCurrentMembership(

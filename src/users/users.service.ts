@@ -77,6 +77,8 @@ export class UsersService {
     let role: Role | undefined = undefined;
 
     if (createUserDto.role?.id) {
+      this.ensureAssignablePlatformRole(createUserDto.role.id);
+
       const roleObject = Object.values(RoleEnum)
         .map(String)
         .includes(String(createUserDto.role.id));
@@ -232,6 +234,8 @@ export class UsersService {
     let role: Role | undefined = undefined;
 
     if (updateUserDto.role?.id) {
+      this.ensureAssignablePlatformRole(updateUserDto.role.id);
+
       const roleObject = Object.values(RoleEnum)
         .map(String)
         .includes(String(updateUserDto.role.id));
@@ -296,5 +300,18 @@ export class UsersService {
 
   async remove(id: User['id']): Promise<void> {
     await this.usersRepository.remove(id);
+  }
+
+  private ensureAssignablePlatformRole(roleId: Role['id']): void {
+    if (Number(roleId) !== RoleEnum.superAdmin) {
+      return;
+    }
+
+    throw new UnprocessableEntityException({
+      status: HttpStatus.UNPROCESSABLE_ENTITY,
+      errors: {
+        role: 'superAdminRoleIsReserved',
+      },
+    });
   }
 }

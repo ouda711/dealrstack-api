@@ -35,6 +35,13 @@ export const permissionCatalog: PermissionDefinition[] = [
       'Can invite staff, manage roles, assign people to work, and control access within the workspace.',
   },
   {
+    key: 'team.view-branch',
+    domain: 'team',
+    label: 'View branch team',
+    description:
+      'Can view team members associated with the user assigned branch context without managing tenant-wide access.',
+  },
+  {
     key: 'branches.view',
     domain: 'branches',
     label: 'View branches',
@@ -180,7 +187,7 @@ export const builtInTenantRolePresets = [
     description:
       'Can run daily operations, manage teams, assignments, pipeline, bookings, inventory, and reports.',
     permissionKeys: [
-      'team.manage',
+      'team.view-branch',
       'branches.view',
       'branches.manage',
       'customers.manage',
@@ -195,7 +202,6 @@ export const builtInTenantRolePresets = [
       'assignments.manage',
       'tasks.manage',
       'reports.view',
-      'settings.manage',
     ],
   },
   {

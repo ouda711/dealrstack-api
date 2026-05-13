@@ -108,6 +108,30 @@ describe('Users Module', () => {
           .expect(201);
       });
 
+      it('should reject assigning the reserved super admin role: /api/v1/users (POST)', () => {
+        return request(app)
+          .post(`/api/v1/users`)
+          .auth(apiToken, {
+            type: 'bearer',
+          })
+          .send({
+            email: `reserved-super-admin.${Date.now()}@example.com`,
+            password: newUserByAdminPassword,
+            firstName: `Reserved${Date.now()}`,
+            lastName: 'E2E',
+            role: {
+              id: RoleEnum.superAdmin,
+            },
+            status: {
+              id: StatusEnum.active,
+            },
+          })
+          .expect(422)
+          .expect(({ body }) => {
+            expect(body.errors.role).toBe('superAdminRoleIsReserved');
+          });
+      });
+
       describe('Guest', () => {
         it('should successfully login via created by admin user: /api/v1/auth/email/login (GET)', () => {
           return request(app)

@@ -134,6 +134,15 @@ describe('Auth', () => {
           expect(body.user.access.currentTenantRole.key).toBe('manager');
           expect(body.user.access.currentBranch.code).toBe('WST');
           expect(
+            body.user.access.permissions.map((permission) => permission.key),
+          ).toEqual(expect.arrayContaining(['team.view-branch']));
+          expect(
+            body.user.access.permissions.map((permission) => permission.key),
+          ).not.toEqual(expect.arrayContaining(['team.manage']));
+          expect(
+            body.user.access.permissions.map((permission) => permission.key),
+          ).not.toEqual(expect.arrayContaining(['settings.manage']));
+          expect(
             body.user.access.currentBranches.map((branch) => branch.code),
           ).toEqual(expect.arrayContaining(['WST']));
         });

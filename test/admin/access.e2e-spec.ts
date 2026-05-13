@@ -4,8 +4,10 @@ import { ADMIN_EMAIL, ADMIN_PASSWORD, APP_URL } from '../utils/constants';
 describe('Access Module', () => {
   const app = APP_URL;
   let apiToken: string;
+  let branchManagerToken: string;
   let tenantId: number;
   let superAdminRoleId: number;
+  let salespersonRoleId: number;
 
   beforeAll(async () => {
     await request(app)
@@ -26,6 +28,17 @@ describe('Access Module', () => {
           (tenant) => tenant.slug === 'nairobi-auto-hub',
         )?.id;
       });
+
+    await request(app)
+      .post('/api/v1/auth/email/login')
+      .send({
+        email: 'grace@nairobi-auto-hub.co.ke',
+        password: 'secret',
+      })
+      .expect(200)
+      .then(({ body }) => {
+        branchManagerToken = body.token;
+      });
   });
 
   it('should list broad permission catalog entries', () => {
@@ -39,6 +52,7 @@ describe('Access Module', () => {
         const permissionKeys = body.map((permission) => permission.key);
         expect(permissionKeys).toContain('platform.manage');
         expect(permissionKeys).toContain('tenants.manage');
+        expect(permissionKeys).toContain('team.view-branch');
         expect(permissionKeys).toContain('branches.manage-all');
         expect(permissionKeys).toContain('leads.manage');
         expect(permissionKeys).toContain('rentals.manage');
@@ -46,7 +60,27 @@ describe('Access Module', () => {
       });
   });
 
-  it('should list platform and tenant roles for a workspace', () => {
+  it('should list platform roles only for the platform owner context', () => {
+    return request(app)
+      .get('/api/v1/access/roles')
+      .auth(apiToken, {
+        type: 'bearer',
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        const roleKeys = body.map((role) => role.key);
+        const superAdmin = body.find((role) => role.key === 'super-admin');
+
+        superAdminRoleId = superAdmin.id;
+
+        expect(superAdmin?.name).toBe('Super Admin');
+        expect(superAdmin?.scope).toBe('platform');
+        expect(roleKeys).toContain('super-admin');
+        expect(body.every((role) => role.scope === 'platform')).toBe(true);
+      });
+  });
+
+  it('should list tenant roles for a workspace without platform roles', () => {
     return request(app)
       .get(`/api/v1/access/roles?tenantId=${tenantId}`)
       .auth(apiToken, {
@@ -55,24 +89,40 @@ describe('Access Module', () => {
       .expect(200)
       .expect(({ body }) => {
         const roleKeys = body.map((role) => role.key);
-        const superAdmin = body.find((role) => role.key === 'super-admin');
         const owner = body.find((role) => role.key === 'owner');
         const tenantAdmin = body.find((role) => role.key === 'tenant-admin');
+        const salesperson = body.find((role) => role.key === 'salesperson');
 
-        superAdminRoleId = superAdmin.id;
+        salespersonRoleId = salesperson.id;
 
-        expect(superAdmin?.name).toBe('Super Admin');
-        expect(superAdmin?.scope).toBe('platform');
         expect(owner?.name).toBe('Owner');
         expect(owner?.scope).toBe('tenant');
         expect(tenantAdmin?.name).toBe('Tenant Admin');
         expect(tenantAdmin?.scope).toBe('tenant');
-        expect(roleKeys).toContain('super-admin');
+        expect(roleKeys).not.toContain('super-admin');
         expect(roleKeys).toContain('owner');
         expect(roleKeys).toContain('tenant-admin');
         expect(roleKeys).toContain('salesperson');
         expect(roleKeys).toContain('rental-agent');
         expect(roleKeys).toContain('driver');
+      });
+  });
+
+  it('should hide tenant admin roles from branch-scoped team viewers', () => {
+    return request(app)
+      .get(`/api/v1/access/roles?tenantId=${tenantId}`)
+      .auth(branchManagerToken, {
+        type: 'bearer',
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        const roleKeys = body.map((role) => role.key);
+
+        expect(roleKeys).not.toContain('super-admin');
+        expect(roleKeys).not.toContain('owner');
+        expect(roleKeys).not.toContain('tenant-admin');
+        expect(roleKeys).toContain('manager');
+        expect(roleKeys).toContain('salesperson');
       });
   });
 
@@ -99,8 +149,125 @@ describe('Access Module', () => {
       .expect(200)
       .expect(({ body }) => {
         const memberEmails = body.map((membership) => membership.user.email);
+        const graceMembership = body.find(
+          (membership) =>
+            membership.user.email === 'grace@nairobi-auto-hub.co.ke',
+        );
+
         expect(memberEmails).toContain('admin@dealrstack.com');
         expect(memberEmails).toContain('sales@dealrstack.com');
+        expect(body.some((membership) => membership.user.role)).toBe(false);
+        expect(JSON.stringify(body)).not.toContain('super-admin');
+        expect(
+          graceMembership.assignedBranches.map((branch) => branch.code),
+        ).toEqual(expect.arrayContaining(['WST']));
+      });
+  });
+
+  it('should scope tenant memberships to assigned branches for branch managers', () => {
+    return request(app)
+      .get(`/api/v1/access/tenants/${tenantId}/memberships`)
+      .auth(branchManagerToken, {
+        type: 'bearer',
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        const memberEmails = body.map((membership) => membership.user.email);
+
+        expect(memberEmails).toContain('grace@nairobi-auto-hub.co.ke');
+        expect(memberEmails).not.toContain('tenant-admin@dealrstack.com');
+        expect(memberEmails).not.toContain('admin@dealrstack.com');
+        expect(
+          body.every((membership) =>
+            membership.assignedBranches.some((branch) => branch.code === 'WST'),
+          ),
+        ).toBe(true);
+      });
+  });
+
+  it('should block branch-scoped team viewers from updating memberships', async () => {
+    const membershipsResponse = await request(app)
+      .get(`/api/v1/access/tenants/${tenantId}/memberships`)
+      .auth(branchManagerToken, {
+        type: 'bearer',
+      })
+      .expect(200);
+    const branchManagerMembership = membershipsResponse.body.find(
+      (membership) => membership.user.email === 'grace@nairobi-auto-hub.co.ke',
+    );
+
+    return request(app)
+      .patch(
+        `/api/v1/access/tenants/${tenantId}/memberships/${branchManagerMembership.id}`,
+      )
+      .auth(branchManagerToken, {
+        type: 'bearer',
+      })
+      .send({
+        title: 'Self Promoted Manager',
+      })
+      .expect(403)
+      .expect(({ body }) => {
+        expect(body.message).toBe('Forbidden resource');
+      });
+  });
+
+  it('should update a tenant membership role, title, and status', async () => {
+    const membershipsResponse = await request(app)
+      .get(`/api/v1/access/tenants/${tenantId}/memberships`)
+      .auth(apiToken, {
+        type: 'bearer',
+      })
+      .expect(200);
+    const salespersonMembership = membershipsResponse.body.find(
+      (membership) => membership.user.email === 'sales@dealrstack.com',
+    );
+
+    return request(app)
+      .patch(
+        `/api/v1/access/tenants/${tenantId}/memberships/${salespersonMembership.id}`,
+      )
+      .auth(apiToken, {
+        type: 'bearer',
+      })
+      .send({
+        roleId: salespersonRoleId,
+        title: 'Sales Consultant',
+        status: 'active',
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.id).toBe(salespersonMembership.id);
+        expect(body.title).toBe('Sales Consultant');
+        expect(body.status).toBe('active');
+        expect(body.role.key).toBe('salesperson');
+      });
+  });
+
+  it('should reject platform roles for tenant memberships', async () => {
+    const membershipsResponse = await request(app)
+      .get(`/api/v1/access/tenants/${tenantId}/memberships`)
+      .auth(apiToken, {
+        type: 'bearer',
+      })
+      .expect(200);
+    const salespersonMembership = membershipsResponse.body.find(
+      (membership) => membership.user.email === 'sales@dealrstack.com',
+    );
+
+    return request(app)
+      .patch(
+        `/api/v1/access/tenants/${tenantId}/memberships/${salespersonMembership.id}`,
+      )
+      .auth(apiToken, {
+        type: 'bearer',
+      })
+      .send({
+        roleId: superAdminRoleId,
+      })
+      .expect(422)
+      .expect(({ body }) => {
+        expect(body.errors.roleId).toBe('tenantRoleNotFound');
       });
   });
 });
