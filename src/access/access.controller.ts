@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Param,
   Patch,
+  Post,
   Query,
   Request,
   UseGuards,
@@ -17,12 +18,14 @@ import {
   ApiOperation,
   ApiParam,
   ApiTags,
+  ApiCreatedResponse,
 } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { RoleEntity } from '../roles/infrastructure/persistence/relational/entities/role.entity';
 import { PermissionEntity } from './infrastructure/persistence/relational/entities/permission.entity';
 import { TenantMembershipEntity } from './infrastructure/persistence/relational/entities/tenant-membership.entity';
 import { AccessService } from './access.service';
+import { InviteTenantMemberDto } from './dto/invite-tenant-member.dto';
 import { UpdateTenantMembershipDto } from './dto/update-tenant-membership.dto';
 import { RequirePermissions } from './permissions.decorator';
 import { PermissionsGuard } from './permissions.guard';
@@ -108,6 +111,37 @@ export class AccessController {
       {
         activeOnly: false,
       },
+    );
+  }
+
+  @ApiCreatedResponse({
+    type: TenantMembershipEntity,
+  })
+  @Post('tenants/:tenantId/memberships')
+  @RequirePermissions('team.manage')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Invite a tenant team member',
+    description:
+      'Creates or reuses a user account and adds an invited membership to the selected tenant workspace.',
+  })
+  @ApiBody({
+    type: InviteTenantMemberDto,
+  })
+  @ApiParam({
+    name: 'tenantId',
+    type: String,
+    required: true,
+  })
+  inviteTenantMember(
+    @Param('tenantId') tenantId: string,
+    @Body() inviteTenantMemberDto: InviteTenantMemberDto,
+    @Request() request: { user?: { id: number; role?: { id: number } } },
+  ): Promise<TenantMembershipEntity> {
+    return this.accessService.inviteTenantMember(
+      Number(tenantId),
+      inviteTenantMemberDto,
+      request.user,
     );
   }
 

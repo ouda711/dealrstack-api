@@ -134,10 +134,9 @@ export class AuditTrailService {
     });
 
     if (
-      rolePermissions.some((rolePermission) =>
-        ['branches.manage-all', 'settings.manage', 'workspace.manage'].includes(
-          rolePermission.permission.key,
-        ),
+      rolePermissions.some(
+        (rolePermission) =>
+          rolePermission.permission.key === 'branches.manage-all',
       )
     ) {
       return undefined;

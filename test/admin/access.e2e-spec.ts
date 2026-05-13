@@ -245,6 +245,61 @@ describe('Access Module', () => {
       });
   });
 
+  it('should invite a new tenant member with invited status', () => {
+    const inviteEmail = `invited.${Date.now()}@dealrstack.com`;
+
+    return request(app)
+      .post(`/api/v1/access/tenants/${tenantId}/memberships`)
+      .auth(apiToken, {
+        type: 'bearer',
+      })
+      .send({
+        email: inviteEmail,
+        firstName: 'Invited',
+        lastName: 'Member',
+        roleId: salespersonRoleId,
+        title: 'Sales Trainee',
+      })
+      .expect(201)
+      .expect(({ body }) => {
+        expect(body.status).toBe('invited');
+        expect(body.title).toBe('Sales Trainee');
+        expect(body.role.key).toBe('salesperson');
+        expect(body.user.email).toBe(inviteEmail);
+        expect(body.user.role).not.toBeDefined();
+      });
+  });
+
+  it('should reject duplicate tenant membership invites', async () => {
+    const inviteEmail = `duplicate-invite.${Date.now()}@dealrstack.com`;
+    const invitePayload = {
+      email: inviteEmail,
+      firstName: 'Duplicate',
+      lastName: 'Invite',
+      roleId: salespersonRoleId,
+      title: 'Sales Trainee',
+    };
+
+    await request(app)
+      .post(`/api/v1/access/tenants/${tenantId}/memberships`)
+      .auth(apiToken, {
+        type: 'bearer',
+      })
+      .send(invitePayload)
+      .expect(201);
+
+    return request(app)
+      .post(`/api/v1/access/tenants/${tenantId}/memberships`)
+      .auth(apiToken, {
+        type: 'bearer',
+      })
+      .send(invitePayload)
+      .expect(422)
+      .expect(({ body }) => {
+        expect(body.errors.email).toBe('tenantMembershipAlreadyExists');
+      });
+  });
+
   it('should reject platform roles for tenant memberships', async () => {
     const membershipsResponse = await request(app)
       .get(`/api/v1/access/tenants/${tenantId}/memberships`)

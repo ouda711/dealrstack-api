@@ -11,6 +11,8 @@ describe('Audit Trail Module', () => {
   let branchManagerToken: string;
   let tenantId: number;
   let branchId: number;
+  let salespersonRoleId: number;
+  let branchManagerVisibleBranchIds: number[];
 
   beforeAll(async () => {
     await request(app)
@@ -36,6 +38,9 @@ describe('Audit Trail Module', () => {
       .expect(200)
       .then(({ body }) => {
         branchManagerToken = body.token;
+        branchManagerVisibleBranchIds = body.user.access.currentBranches.map(
+          (branch) => Number(branch.id),
+        );
       });
 
     await request(app)
@@ -52,6 +57,16 @@ describe('Audit Trail Module', () => {
       .expect(201)
       .then(({ body }) => {
         branchId = body.id;
+      });
+
+    await request(app)
+      .get(`/api/v1/access/roles?tenantId=${tenantId}`)
+      .auth(tenantAdminToken, {
+        type: 'bearer',
+      })
+      .expect(200)
+      .then(({ body }) => {
+        salespersonRoleId = body.find((role) => role.key === 'salesperson').id;
       });
   });
 
@@ -107,6 +122,43 @@ describe('Audit Trail Module', () => {
       });
   });
 
+  it('should record team invitation events', async () => {
+    const inviteEmail = `audit-invite.${Date.now()}@dealrstack.com`;
+
+    await request(app)
+      .post(`/api/v1/access/tenants/${tenantId}/memberships`)
+      .auth(tenantAdminToken, {
+        type: 'bearer',
+      })
+      .send({
+        email: inviteEmail,
+        firstName: 'Audit',
+        lastName: 'Invite',
+        roleId: salespersonRoleId,
+        title: 'Sales Trainee',
+      })
+      .expect(201);
+
+    return request(app)
+      .get(`/api/v1/tenants/${tenantId}/audit-trail`)
+      .set('x-tenant-id', String(tenantId))
+      .auth(tenantAdminToken, {
+        type: 'bearer',
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        const event = body.data.find(
+          (auditEvent) =>
+            auditEvent.action === 'INVITE_TEAM_MEMBER' &&
+            auditEvent.metadata?.targetUserEmail === inviteEmail,
+        );
+
+        expect(event).toBeDefined();
+        expect(event.description).toContain(inviteEmail);
+        expect(event.actor.email).toBe(TENANT_ADMIN_EMAIL);
+      });
+  });
+
   it('should scope branch managers to assigned branch audit events', () => {
     return request(app)
       .get(`/api/v1/tenants/${tenantId}/audit-trail`)
@@ -117,7 +169,11 @@ describe('Audit Trail Module', () => {
       .expect(200)
       .expect(({ body }) => {
         expect(
-          body.data.every((auditEvent) => auditEvent.branch?.code === 'WST'),
+          body.data.every((auditEvent) =>
+            branchManagerVisibleBranchIds.includes(
+              Number(auditEvent.branch?.id),
+            ),
+          ),
         ).toBe(true);
       });
   });

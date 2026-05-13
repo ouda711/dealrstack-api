@@ -7,18 +7,23 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
+import { AuthProvidersEnum } from '../auth/auth-providers.enum';
 import { BranchEntity } from '../branches/infrastructure/persistence/relational/entities/branch.entity';
 import {
   RoleEntity,
   RoleScope,
 } from '../roles/infrastructure/persistence/relational/entities/role.entity';
 import type { Role } from '../roles/domain/role';
+import { RoleEnum } from '../roles/roles.enum';
+import { StatusEnum } from '../statuses/statuses.enum';
+import { UserEntity } from '../users/infrastructure/persistence/relational/entities/user.entity';
 import { PermissionEntity } from './infrastructure/persistence/relational/entities/permission.entity';
 import { RolePermissionEntity } from './infrastructure/persistence/relational/entities/role-permission.entity';
 import {
   TenantMembershipEntity,
   TenantMembershipStatus,
 } from './infrastructure/persistence/relational/entities/tenant-membership.entity';
+import { InviteTenantMemberDto } from './dto/invite-tenant-member.dto';
 import { UpdateTenantMembershipDto } from './dto/update-tenant-membership.dto';
 import { AuditTrailService } from '../audit-trail/audit-trail.service';
 
@@ -82,6 +87,8 @@ export class AccessService {
     private readonly tenantMembershipRepository: Repository<TenantMembershipEntity>,
     @InjectRepository(BranchEntity)
     private readonly branchRepository: Repository<BranchEntity>,
+    @InjectRepository(UserEntity)
+    private readonly userRepository: Repository<UserEntity>,
     private readonly auditTrailService: AuditTrailService,
   ) {}
 
@@ -331,6 +338,114 @@ export class AccessService {
     );
   }
 
+  async inviteTenantMember(
+    tenantId: number,
+    inviteTenantMemberDto: InviteTenantMemberDto,
+    actor?: AccessActor,
+  ): Promise<TenantMembershipWithBranches> {
+    if (!(await this.canViewTenantTeam(tenantId, actor))) {
+      throw new ForbiddenException({
+        status: HttpStatus.FORBIDDEN,
+        error: 'tenantMembershipInviteForbidden',
+      });
+    }
+
+    const role = await this.getTenantRoleOrThrow(
+      tenantId,
+      inviteTenantMemberDto.roleId,
+    );
+    const branch = inviteTenantMemberDto.branchId
+      ? await this.getBranchForAssignmentOrThrow(
+          tenantId,
+          inviteTenantMemberDto.branchId,
+        )
+      : null;
+    let user = await this.userRepository.findOne({
+      where: {
+        email: inviteTenantMemberDto.email,
+      },
+    });
+
+    if (!user) {
+      user = await this.userRepository.save(
+        this.userRepository.create({
+          email: inviteTenantMemberDto.email,
+          firstName: inviteTenantMemberDto.firstName,
+          lastName: inviteTenantMemberDto.lastName,
+          provider: AuthProvidersEnum.email,
+          role: {
+            id: RoleEnum.user,
+          },
+          status: {
+            id: StatusEnum.inactive,
+          },
+        }),
+      );
+    }
+
+    const existingMembership = await this.tenantMembershipRepository.findOne({
+      where: {
+        tenant: {
+          id: tenantId,
+        },
+        user: {
+          id: user.id,
+        },
+      },
+    });
+
+    if (existingMembership) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        errors: {
+          email: 'tenantMembershipAlreadyExists',
+        },
+      });
+    }
+
+    const membership = await this.tenantMembershipRepository.save(
+      this.tenantMembershipRepository.create({
+        tenant: {
+          id: tenantId,
+        },
+        user,
+        role,
+        title: inviteTenantMemberDto.title?.trim() || null,
+        status: TenantMembershipStatus.Invited,
+      }),
+    );
+
+    if (branch) {
+      await this.branchRepository.save({
+        ...branch,
+        manager: user,
+      });
+    }
+
+    await this.auditTrailService.record({
+      tenantId,
+      branchId: inviteTenantMemberDto.branchId,
+      actor: {
+        id: actor?.id,
+      },
+      action: 'INVITE_TEAM_MEMBER',
+      description: `invited ${user.email} as ${role.name || 'team member'}`,
+      metadata: {
+        membershipId: membership.id,
+        targetUserId: user.id,
+        targetUserEmail: user.email,
+        roleName: role.name,
+        title: membership.title,
+        status: membership.status,
+        branchId: inviteTenantMemberDto.branchId,
+      },
+    });
+
+    return this.withAssignedBranches(tenantId, [membership]).then(
+      ([membershipWithBranches]) => membershipWithBranches,
+    );
+  }
+
   private async findUserTenantMembershipAccess(
     userId: number,
   ): Promise<UserTenantMembershipAccess[]> {
@@ -572,6 +687,31 @@ export class AccessService {
     }
 
     return role;
+  }
+
+  private async getBranchForAssignmentOrThrow(
+    tenantId: number,
+    branchId: number,
+  ): Promise<BranchEntity> {
+    const branch = await this.branchRepository.findOne({
+      where: {
+        id: branchId,
+        tenant: {
+          id: tenantId,
+        },
+      },
+    });
+
+    if (!branch) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        errors: {
+          branchId: 'branchNotFoundInTenant',
+        },
+      });
+    }
+
+    return branch;
   }
 
   private resolveCurrentMembership(
