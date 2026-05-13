@@ -91,6 +91,13 @@ export const permissionCatalog: PermissionDefinition[] = [
       'Can manage shared inbox conversations, customer replies, internal notes, templates, and ownership.',
   },
   {
+    key: 'vehicles.view',
+    domain: 'vehicles',
+    label: 'View vehicles',
+    description:
+      'Can view vehicle inventory, fleet records, pricing, availability, and assignment context.',
+  },
+  {
     key: 'vehicles.manage',
     domain: 'vehicles',
     label: 'Manage vehicles',
@@ -201,6 +208,7 @@ export const builtInTenantRolePresets = [
       'customers.manage',
       'leads.manage',
       'conversations.manage',
+      'vehicles.view',
       'vehicles.manage',
       'pipeline.manage',
       'bookings.manage',
@@ -222,6 +230,7 @@ export const builtInTenantRolePresets = [
       'branches.view',
       'leads.manage',
       'conversations.manage',
+      'vehicles.view',
       'vehicles.manage',
       'pipeline.manage',
       'bookings.manage',
@@ -237,6 +246,7 @@ export const builtInTenantRolePresets = [
       'customers.manage',
       'branches.view',
       'conversations.manage',
+      'vehicles.view',
       'vehicles.manage',
       'bookings.manage',
       'rentals.manage',
@@ -251,6 +261,7 @@ export const builtInTenantRolePresets = [
       'Can view assigned vehicles, bookings, delivery tasks, handovers, and update assigned operational work.',
     permissionKeys: [
       'branches.view',
+      'vehicles.view',
       'vehicles.manage',
       'bookings.manage',
       'tasks.manage',
@@ -261,6 +272,6 @@ export const builtInTenantRolePresets = [
     name: 'Viewer',
     description:
       'Read-oriented access for stakeholders who need visibility without managing daily operations.',
-    permissionKeys: ['branches.view', 'reports.view'],
+    permissionKeys: ['branches.view', 'vehicles.view', 'reports.view'],
   },
 ];

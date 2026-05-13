@@ -78,6 +78,7 @@ describe('Access Module', () => {
         expect(permissionKeys).toContain('audit.view');
         expect(permissionKeys).toContain('team.view-branch');
         expect(permissionKeys).toContain('branches.manage-all');
+        expect(permissionKeys).toContain('vehicles.view');
         expect(permissionKeys).toContain('leads.manage');
         expect(permissionKeys).toContain('rentals.manage');
         expect(permissionKeys).toContain('auctions.manage');

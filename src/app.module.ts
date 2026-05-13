@@ -31,6 +31,7 @@ import { TenantsModule } from './tenants/tenants.module';
 import { AccessModule } from './access/access.module';
 import { BranchesModule } from './branches/branches.module';
 import { AuditTrailModule } from './audit-trail/audit-trail.module';
+import { VehiclesModule } from './vehicles/vehicles.module';
 
 // <database-block>
 const infrastructureDatabaseModule = (databaseConfig() as DatabaseConfig)
@@ -100,6 +101,7 @@ const infrastructureDatabaseModule = (databaseConfig() as DatabaseConfig)
     AccessModule,
     BranchesModule,
     AuditTrailModule,
+    VehiclesModule,
   ],
 })
 export class AppModule {}
