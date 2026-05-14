@@ -12,6 +12,8 @@ import { VehicleBrandEntity } from './infrastructure/persistence/relational/enti
 import { VehicleEngineEntity } from './infrastructure/persistence/relational/entities/vehicle-engine.entity';
 import { VehicleGenerationEntity } from './infrastructure/persistence/relational/entities/vehicle-generation.entity';
 import { VehicleModelEntity } from './infrastructure/persistence/relational/entities/vehicle-model.entity';
+import { VehicleDocumentEntity } from './infrastructure/persistence/relational/entities/vehicle-document.entity';
+import { VehicleMediaEntity } from './infrastructure/persistence/relational/entities/vehicle-media.entity';
 import { VehicleTrimEntity } from './infrastructure/persistence/relational/entities/vehicle-trim.entity';
 import { VehicleEntity } from './infrastructure/persistence/relational/entities/vehicle.entity';
 import { VehiclesController } from './vehicles.controller';
@@ -29,8 +31,10 @@ import { VehiclesService } from './vehicles.service';
       VehicleBodyTypeEntity,
       VehicleBrandEntity,
       VehicleEngineEntity,
+      VehicleDocumentEntity,
       VehicleEntity,
       VehicleGenerationEntity,
+      VehicleMediaEntity,
       VehicleModelEntity,
       VehicleTrimEntity,
     ]),

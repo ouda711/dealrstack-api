@@ -324,4 +324,142 @@ describe('Vehicles Module', () => {
         ).toBe(true);
       });
   });
+
+  it('should manage vehicle media and documents on detail response', async () => {
+    const createResponse = await request(app)
+      .post(`/api/v1/tenants/${tenantId}/vehicles`)
+      .set('x-tenant-id', String(tenantId))
+      .auth(apiToken, {
+        type: 'bearer',
+      })
+      .send(vehiclePayload())
+      .expect(201);
+
+    const vehicleId = createResponse.body.id;
+
+    const mediaResponse = await request(app)
+      .post(`/api/v1/tenants/${tenantId}/vehicles/${vehicleId}/media`)
+      .set('x-tenant-id', String(tenantId))
+      .auth(apiToken, {
+        type: 'bearer',
+      })
+      .send({
+        kind: 'image',
+        url: 'https://cdn.example.com/vehicle-front.jpg',
+        caption: 'Front angle',
+        sortOrder: 0,
+      })
+      .expect(201);
+
+    const detailAfterMedia = await request(app)
+      .get(`/api/v1/tenants/${tenantId}/vehicles/${vehicleId}`)
+      .set('x-tenant-id', String(tenantId))
+      .auth(apiToken, {
+        type: 'bearer',
+      })
+      .expect(200);
+
+    expect(detailAfterMedia.body.mediaAssets.length).toBe(1);
+    expect(detailAfterMedia.body.mediaAssets[0].id).toBe(mediaResponse.body.id);
+    expect(detailAfterMedia.body.mediaAssets[0].caption).toBe('Front angle');
+
+    const documentResponse = await request(app)
+      .post(`/api/v1/tenants/${tenantId}/vehicles/${vehicleId}/documents`)
+      .set('x-tenant-id', String(tenantId))
+      .auth(apiToken, {
+        type: 'bearer',
+      })
+      .send({
+        documentType: 'registration',
+        title: 'Logbook',
+        url: 'https://cdn.example.com/logbook.pdf',
+      })
+      .expect(201);
+
+    const documentId = documentResponse.body.id;
+
+    await request(app)
+      .patch(
+        `/api/v1/tenants/${tenantId}/vehicles/${vehicleId}/documents/${documentId}`,
+      )
+      .set('x-tenant-id', String(tenantId))
+      .auth(apiToken, {
+        type: 'bearer',
+      })
+      .send({
+        title: 'Logbook (updated)',
+      })
+      .expect(200);
+
+    const detailAfterDoc = await request(app)
+      .get(`/api/v1/tenants/${tenantId}/vehicles/${vehicleId}`)
+      .set('x-tenant-id', String(tenantId))
+      .auth(apiToken, {
+        type: 'bearer',
+      })
+      .expect(200);
+
+    expect(detailAfterDoc.body.documents.length).toBe(1);
+    expect(detailAfterDoc.body.documents[0].title).toBe('Logbook (updated)');
+
+    await request(app)
+      .delete(
+        `/api/v1/tenants/${tenantId}/vehicles/${vehicleId}/media/${mediaResponse.body.id}`,
+      )
+      .set('x-tenant-id', String(tenantId))
+      .auth(apiToken, {
+        type: 'bearer',
+      })
+      .expect(204);
+
+    await request(app)
+      .delete(
+        `/api/v1/tenants/${tenantId}/vehicles/${vehicleId}/documents/${documentId}`,
+      )
+      .set('x-tenant-id', String(tenantId))
+      .auth(apiToken, {
+        type: 'bearer',
+      })
+      .expect(204);
+
+    const detailCleared = await request(app)
+      .get(`/api/v1/tenants/${tenantId}/vehicles/${vehicleId}`)
+      .set('x-tenant-id', String(tenantId))
+      .auth(apiToken, {
+        type: 'bearer',
+      })
+      .expect(200);
+
+    expect(detailCleared.body.mediaAssets).toEqual([]);
+    expect(detailCleared.body.documents).toEqual([]);
+  });
+
+  it('should block branch managers from adding media on another branch vehicle', async () => {
+    const createResponse = await request(app)
+      .post(`/api/v1/tenants/${tenantId}/vehicles`)
+      .set('x-tenant-id', String(tenantId))
+      .auth(apiToken, {
+        type: 'bearer',
+      })
+      .send(
+        vehiclePayload({
+          branchId: mombasaRoadBranchId,
+        }),
+      )
+      .expect(201);
+
+    return request(app)
+      .post(
+        `/api/v1/tenants/${tenantId}/vehicles/${createResponse.body.id}/media`,
+      )
+      .set('x-tenant-id', String(tenantId))
+      .auth(branchManagerToken, {
+        type: 'bearer',
+      })
+      .send({
+        kind: 'image',
+        url: 'https://cdn.example.com/other-branch.jpg',
+      })
+      .expect(403);
+  });
 });

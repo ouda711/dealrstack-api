@@ -6,6 +6,7 @@ import {
   Index,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
   Relation,
   Unique,
@@ -21,6 +22,8 @@ import { VehicleEngineEntity } from './vehicle-engine.entity';
 import { VehicleGenerationEntity } from './vehicle-generation.entity';
 import { VehicleModelEntity } from './vehicle-model.entity';
 import { VehicleTrimEntity } from './vehicle-trim.entity';
+import { VehicleDocumentEntity } from './vehicle-document.entity';
+import { VehicleMediaEntity } from './vehicle-media.entity';
 
 export enum VehicleListingType {
   Sale = 'sale',
@@ -223,6 +226,12 @@ export class VehicleEntity extends EntityRelationalHelper {
 
   @Column({ type: 'jsonb', nullable: true })
   backwardCompatibility?: Record<string, unknown> | null;
+
+  @OneToMany(() => VehicleMediaEntity, (media) => media.vehicle)
+  mediaAssets?: Relation<VehicleMediaEntity[]>;
+
+  @OneToMany(() => VehicleDocumentEntity, (document) => document.vehicle)
+  documents?: Relation<VehicleDocumentEntity[]>;
 
   @Index()
   @Column({ default: true })

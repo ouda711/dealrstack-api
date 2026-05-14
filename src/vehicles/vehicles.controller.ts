@@ -27,12 +27,17 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { RequirePermissions } from '../access/permissions.decorator';
 import { PermissionsGuard } from '../access/permissions.guard';
+import { CreateVehicleDocumentDto } from './dto/create-vehicle-document.dto';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
+import { CreateVehicleMediaDto } from './dto/create-vehicle-media.dto';
+import { UpdateVehicleDocumentDto } from './dto/update-vehicle-document.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 import { VehicleBodyTypeEntity } from './infrastructure/persistence/relational/entities/vehicle-body-type.entity';
 import { VehicleBrandEntity } from './infrastructure/persistence/relational/entities/vehicle-brand.entity';
 import { VehicleEngineEntity } from './infrastructure/persistence/relational/entities/vehicle-engine.entity';
+import { VehicleDocumentEntity } from './infrastructure/persistence/relational/entities/vehicle-document.entity';
 import { VehicleGenerationEntity } from './infrastructure/persistence/relational/entities/vehicle-generation.entity';
+import { VehicleMediaEntity } from './infrastructure/persistence/relational/entities/vehicle-media.entity';
 import { VehicleModelEntity } from './infrastructure/persistence/relational/entities/vehicle-model.entity';
 import { VehicleTrimEntity } from './infrastructure/persistence/relational/entities/vehicle-trim.entity';
 import { VehicleEntity } from './infrastructure/persistence/relational/entities/vehicle.entity';
@@ -214,6 +219,206 @@ export class VehiclesController {
   ): Promise<VehicleEngineEntity[]> {
     return this.vehiclesService.findCatalogEngines(
       modelId ? Number(modelId) : undefined,
+    );
+  }
+
+  @ApiCreatedResponse({
+    type: VehicleMediaEntity,
+  })
+  @ApiOperation({
+    summary: 'Add gallery media to a vehicle',
+  })
+  @ApiBody({
+    type: CreateVehicleMediaDto,
+  })
+  @SerializeOptions({
+    groups: ['me'],
+  })
+  @Post(':id/media')
+  @RequirePermissions('vehicles.manage')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiParam({
+    name: 'tenantId',
+    type: Number,
+    required: true,
+  })
+  @ApiParam({
+    name: 'id',
+    type: Number,
+    required: true,
+  })
+  addVehicleMedia(
+    @Param('tenantId') tenantId: number,
+    @Param('id') id: VehicleEntity['id'],
+    @Body() dto: CreateVehicleMediaDto,
+    @Request() request,
+  ): Promise<VehicleMediaEntity> {
+    return this.vehiclesService.addVehicleMedia(
+      tenantId,
+      id,
+      dto,
+      request.user,
+    );
+  }
+
+  @ApiOperation({
+    summary: 'Remove gallery media from a vehicle',
+  })
+  @ApiNoContentResponse({
+    description: 'Media removed.',
+  })
+  @Delete(':id/media/:mediaId')
+  @RequirePermissions('vehicles.manage')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiParam({
+    name: 'tenantId',
+    type: Number,
+    required: true,
+  })
+  @ApiParam({
+    name: 'id',
+    type: Number,
+    required: true,
+  })
+  @ApiParam({
+    name: 'mediaId',
+    type: Number,
+    required: true,
+  })
+  removeVehicleMedia(
+    @Param('tenantId') tenantId: number,
+    @Param('id') id: VehicleEntity['id'],
+    @Param('mediaId') mediaId: VehicleMediaEntity['id'],
+    @Request() request,
+  ): Promise<void> {
+    return this.vehiclesService.removeVehicleMedia(
+      tenantId,
+      id,
+      mediaId,
+      request.user,
+    );
+  }
+
+  @ApiCreatedResponse({
+    type: VehicleDocumentEntity,
+  })
+  @ApiOperation({
+    summary: 'Add a compliance document to a vehicle',
+  })
+  @ApiBody({
+    type: CreateVehicleDocumentDto,
+  })
+  @SerializeOptions({
+    groups: ['me'],
+  })
+  @Post(':id/documents')
+  @RequirePermissions('vehicles.manage')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiParam({
+    name: 'tenantId',
+    type: Number,
+    required: true,
+  })
+  @ApiParam({
+    name: 'id',
+    type: Number,
+    required: true,
+  })
+  addVehicleDocument(
+    @Param('tenantId') tenantId: number,
+    @Param('id') id: VehicleEntity['id'],
+    @Body() dto: CreateVehicleDocumentDto,
+    @Request() request,
+  ): Promise<VehicleDocumentEntity> {
+    return this.vehiclesService.addVehicleDocument(
+      tenantId,
+      id,
+      dto,
+      request.user,
+    );
+  }
+
+  @ApiOkResponse({
+    type: VehicleDocumentEntity,
+  })
+  @ApiOperation({
+    summary: 'Update a vehicle compliance document',
+  })
+  @ApiBody({
+    type: UpdateVehicleDocumentDto,
+  })
+  @SerializeOptions({
+    groups: ['me'],
+  })
+  @Patch(':id/documents/:documentId')
+  @RequirePermissions('vehicles.manage')
+  @HttpCode(HttpStatus.OK)
+  @ApiParam({
+    name: 'tenantId',
+    type: Number,
+    required: true,
+  })
+  @ApiParam({
+    name: 'id',
+    type: Number,
+    required: true,
+  })
+  @ApiParam({
+    name: 'documentId',
+    type: Number,
+    required: true,
+  })
+  updateVehicleDocument(
+    @Param('tenantId') tenantId: number,
+    @Param('id') id: VehicleEntity['id'],
+    @Param('documentId') documentId: VehicleDocumentEntity['id'],
+    @Body() dto: UpdateVehicleDocumentDto,
+    @Request() request,
+  ): Promise<VehicleDocumentEntity> {
+    return this.vehiclesService.updateVehicleDocument(
+      tenantId,
+      id,
+      documentId,
+      dto,
+      request.user,
+    );
+  }
+
+  @ApiOperation({
+    summary: 'Remove a vehicle compliance document',
+  })
+  @ApiNoContentResponse({
+    description: 'Document removed.',
+  })
+  @Delete(':id/documents/:documentId')
+  @RequirePermissions('vehicles.manage')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiParam({
+    name: 'tenantId',
+    type: Number,
+    required: true,
+  })
+  @ApiParam({
+    name: 'id',
+    type: Number,
+    required: true,
+  })
+  @ApiParam({
+    name: 'documentId',
+    type: Number,
+    required: true,
+  })
+  removeVehicleDocument(
+    @Param('tenantId') tenantId: number,
+    @Param('id') id: VehicleEntity['id'],
+    @Param('documentId') documentId: VehicleDocumentEntity['id'],
+    @Request() request,
+  ): Promise<void> {
+    return this.vehiclesService.removeVehicleDocument(
+      tenantId,
+      id,
+      documentId,
+      request.user,
     );
   }
 

@@ -6,7 +6,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { FindOneOptions, Repository } from 'typeorm';
 import { RolePermissionEntity } from '../access/infrastructure/persistence/relational/entities/role-permission.entity';
 import {
   TenantMembershipEntity,
@@ -19,12 +19,17 @@ import { Tenant } from '../tenants/domain/tenant';
 import { TenantsService } from '../tenants/tenants.service';
 import { User } from '../users/domain/user';
 import { UserEntity } from '../users/infrastructure/persistence/relational/entities/user.entity';
+import { CreateVehicleDocumentDto } from './dto/create-vehicle-document.dto';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
+import { CreateVehicleMediaDto } from './dto/create-vehicle-media.dto';
+import { UpdateVehicleDocumentDto } from './dto/update-vehicle-document.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
+import { VehicleDocumentEntity } from './infrastructure/persistence/relational/entities/vehicle-document.entity';
 import { VehicleBodyTypeEntity } from './infrastructure/persistence/relational/entities/vehicle-body-type.entity';
 import { VehicleBrandEntity } from './infrastructure/persistence/relational/entities/vehicle-brand.entity';
 import { VehicleEngineEntity } from './infrastructure/persistence/relational/entities/vehicle-engine.entity';
 import { VehicleGenerationEntity } from './infrastructure/persistence/relational/entities/vehicle-generation.entity';
+import { VehicleMediaEntity } from './infrastructure/persistence/relational/entities/vehicle-media.entity';
 import { VehicleModelEntity } from './infrastructure/persistence/relational/entities/vehicle-model.entity';
 import { VehicleTrimEntity } from './infrastructure/persistence/relational/entities/vehicle-trim.entity';
 import {
@@ -68,6 +73,10 @@ export class VehiclesService {
     private readonly vehicleEngineRepository: Repository<VehicleEngineEntity>,
     @InjectRepository(VehicleBodyTypeEntity)
     private readonly vehicleBodyTypeRepository: Repository<VehicleBodyTypeEntity>,
+    @InjectRepository(VehicleMediaEntity)
+    private readonly vehicleMediaRepository: Repository<VehicleMediaEntity>,
+    @InjectRepository(VehicleDocumentEntity)
+    private readonly vehicleDocumentRepository: Repository<VehicleDocumentEntity>,
     private readonly tenantsService: TenantsService,
     private readonly auditTrailService: AuditTrailService,
   ) {}
@@ -200,7 +209,9 @@ export class VehiclesService {
       metadata: this.getVehicleAuditSnapshot(vehicle),
     });
 
-    return vehicle;
+    return this.getVehicleOrThrow(tenantId, vehicle.id, {
+      withAttachments: true,
+    });
   }
 
   async findByTenantId(tenantId: Tenant['id']): Promise<VehicleEntity[]> {
@@ -224,7 +235,262 @@ export class VehiclesService {
   ): Promise<VehicleEntity> {
     await this.getTenantOrThrow(tenantId);
 
-    return this.getVehicleOrThrow(tenantId, id);
+    return this.getVehicleOrThrow(tenantId, id, { withAttachments: true });
+  }
+
+  async addVehicleMedia(
+    tenantId: Tenant['id'],
+    vehicleId: VehicleEntity['id'],
+    dto: CreateVehicleMediaDto,
+    actor: VehicleActor,
+  ): Promise<VehicleMediaEntity> {
+    await this.getTenantOrThrow(tenantId);
+    const vehicle = await this.getVehicleOrThrow(tenantId, vehicleId);
+
+    await this.ensureCanManageVehicleBranch(
+      Number(tenantId),
+      vehicle.branch || null,
+      actor,
+    );
+
+    const saved = await this.vehicleMediaRepository.save(
+      this.vehicleMediaRepository.create({
+        vehicle,
+        kind: dto.kind,
+        url: dto.url.trim(),
+        caption: dto.caption?.trim() || null,
+        sortOrder: dto.sortOrder ?? 0,
+      }),
+    );
+
+    await this.auditTrailService.record({
+      tenantId: Number(tenantId),
+      branchId: vehicle.branch?.id,
+      actor: {
+        id: actor.id,
+      },
+      action: 'ADD_VEHICLE_MEDIA',
+      description: `added ${dto.kind} media to vehicle ${this.getVehicleLabel(vehicle)}`,
+      metadata: {
+        vehicleId: vehicle.id,
+        mediaId: saved.id,
+        kind: saved.kind,
+        url: saved.url,
+      },
+    });
+
+    return saved;
+  }
+
+  async removeVehicleMedia(
+    tenantId: Tenant['id'],
+    vehicleId: VehicleEntity['id'],
+    mediaId: VehicleMediaEntity['id'],
+    actor: VehicleActor,
+  ): Promise<void> {
+    await this.getTenantOrThrow(tenantId);
+    const vehicle = await this.getVehicleOrThrow(tenantId, vehicleId);
+
+    await this.ensureCanManageVehicleBranch(
+      Number(tenantId),
+      vehicle.branch || null,
+      actor,
+    );
+
+    const media = await this.vehicleMediaRepository.findOne({
+      where: {
+        id: Number(mediaId),
+        vehicle: {
+          id: vehicle.id,
+        },
+      },
+    });
+
+    if (!media) {
+      throw new NotFoundException({
+        status: HttpStatus.NOT_FOUND,
+        error: 'vehicleMediaNotFound',
+      });
+    }
+
+    await this.vehicleMediaRepository.remove(media);
+
+    await this.auditTrailService.record({
+      tenantId: Number(tenantId),
+      branchId: vehicle.branch?.id,
+      actor: {
+        id: actor.id,
+      },
+      action: 'DELETE_VEHICLE_MEDIA',
+      description: `removed ${media.kind} media from vehicle ${this.getVehicleLabel(vehicle)}`,
+      metadata: {
+        vehicleId: vehicle.id,
+        mediaId: media.id,
+      },
+    });
+  }
+
+  async addVehicleDocument(
+    tenantId: Tenant['id'],
+    vehicleId: VehicleEntity['id'],
+    dto: CreateVehicleDocumentDto,
+    actor: VehicleActor,
+  ): Promise<VehicleDocumentEntity> {
+    await this.getTenantOrThrow(tenantId);
+    const vehicle = await this.getVehicleOrThrow(tenantId, vehicleId);
+
+    await this.ensureCanManageVehicleBranch(
+      Number(tenantId),
+      vehicle.branch || null,
+      actor,
+    );
+
+    const saved = await this.vehicleDocumentRepository.save(
+      this.vehicleDocumentRepository.create({
+        vehicle,
+        documentType: dto.documentType,
+        title: dto.title.trim(),
+        url: dto.url.trim(),
+        notes: dto.notes?.trim() || null,
+        expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
+      }),
+    );
+
+    await this.auditTrailService.record({
+      tenantId: Number(tenantId),
+      branchId: vehicle.branch?.id,
+      actor: {
+        id: actor.id,
+      },
+      action: 'ADD_VEHICLE_DOCUMENT',
+      description: `added ${dto.documentType} document "${dto.title.trim()}" to vehicle ${this.getVehicleLabel(vehicle)}`,
+      metadata: {
+        vehicleId: vehicle.id,
+        documentId: saved.id,
+        documentType: saved.documentType,
+      },
+    });
+
+    return saved;
+  }
+
+  async updateVehicleDocument(
+    tenantId: Tenant['id'],
+    vehicleId: VehicleEntity['id'],
+    documentId: VehicleDocumentEntity['id'],
+    dto: UpdateVehicleDocumentDto,
+    actor: VehicleActor,
+  ): Promise<VehicleDocumentEntity> {
+    await this.getTenantOrThrow(tenantId);
+    const vehicle = await this.getVehicleOrThrow(tenantId, vehicleId);
+
+    await this.ensureCanManageVehicleBranch(
+      Number(tenantId),
+      vehicle.branch || null,
+      actor,
+    );
+
+    const document = await this.vehicleDocumentRepository.findOne({
+      where: {
+        id: Number(documentId),
+        vehicle: {
+          id: vehicle.id,
+        },
+      },
+    });
+
+    if (!document) {
+      throw new NotFoundException({
+        status: HttpStatus.NOT_FOUND,
+        error: 'vehicleDocumentNotFound',
+      });
+    }
+
+    if (dto.documentType !== undefined) {
+      document.documentType = dto.documentType;
+    }
+
+    if (dto.title !== undefined) {
+      document.title = dto.title.trim();
+    }
+
+    if (dto.url !== undefined) {
+      document.url = dto.url.trim();
+    }
+
+    if (dto.notes !== undefined) {
+      document.notes = dto.notes?.trim() || null;
+    }
+
+    if (dto.expiresAt !== undefined) {
+      document.expiresAt = dto.expiresAt ? new Date(dto.expiresAt) : null;
+    }
+
+    const saved = await this.vehicleDocumentRepository.save(document);
+
+    await this.auditTrailService.record({
+      tenantId: Number(tenantId),
+      branchId: vehicle.branch?.id,
+      actor: {
+        id: actor.id,
+      },
+      action: 'UPDATE_VEHICLE_DOCUMENT',
+      description: `updated document "${saved.title}" on vehicle ${this.getVehicleLabel(vehicle)}`,
+      metadata: {
+        vehicleId: vehicle.id,
+        documentId: saved.id,
+      },
+    });
+
+    return saved;
+  }
+
+  async removeVehicleDocument(
+    tenantId: Tenant['id'],
+    vehicleId: VehicleEntity['id'],
+    documentId: VehicleDocumentEntity['id'],
+    actor: VehicleActor,
+  ): Promise<void> {
+    await this.getTenantOrThrow(tenantId);
+    const vehicle = await this.getVehicleOrThrow(tenantId, vehicleId);
+
+    await this.ensureCanManageVehicleBranch(
+      Number(tenantId),
+      vehicle.branch || null,
+      actor,
+    );
+
+    const document = await this.vehicleDocumentRepository.findOne({
+      where: {
+        id: Number(documentId),
+        vehicle: {
+          id: vehicle.id,
+        },
+      },
+    });
+
+    if (!document) {
+      throw new NotFoundException({
+        status: HttpStatus.NOT_FOUND,
+        error: 'vehicleDocumentNotFound',
+      });
+    }
+
+    await this.vehicleDocumentRepository.remove(document);
+
+    await this.auditTrailService.record({
+      tenantId: Number(tenantId),
+      branchId: vehicle.branch?.id,
+      actor: {
+        id: actor.id,
+      },
+      action: 'DELETE_VEHICLE_DOCUMENT',
+      description: `removed document "${document.title}" from vehicle ${this.getVehicleLabel(vehicle)}`,
+      metadata: {
+        vehicleId: vehicle.id,
+        documentId: document.id,
+      },
+    });
   }
 
   async update(
@@ -308,7 +574,9 @@ export class VehiclesService {
       });
     }
 
-    return updatedVehicle;
+    return this.getVehicleOrThrow(tenantId, updatedVehicle.id, {
+      withAttachments: true,
+    });
   }
 
   async remove(
@@ -796,15 +1064,34 @@ export class VehiclesService {
   private async getVehicleOrThrow(
     tenantId: Tenant['id'],
     id: VehicleEntity['id'],
+    options?: { withAttachments?: boolean },
   ): Promise<VehicleEntity> {
-    const vehicle = await this.vehicleRepository.findOne({
+    const findOptions: FindOneOptions<VehicleEntity> = {
       where: {
         id: Number(id),
         tenant: {
           id: Number(tenantId),
         },
       },
-    });
+    };
+
+    if (options?.withAttachments) {
+      findOptions.relations = {
+        mediaAssets: true,
+        documents: true,
+      };
+      findOptions.order = {
+        mediaAssets: {
+          sortOrder: 'ASC',
+          id: 'ASC',
+        },
+        documents: {
+          createdAt: 'DESC',
+        },
+      };
+    }
+
+    const vehicle = await this.vehicleRepository.findOne(findOptions);
 
     if (!vehicle) {
       throw new NotFoundException({
