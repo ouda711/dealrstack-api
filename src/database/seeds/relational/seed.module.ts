@@ -12,6 +12,7 @@ import appConfig from '../../../config/app.config';
 import { TenantSeedModule } from './tenant/tenant-seed.module';
 import { AccessSeedModule } from './access/access-seed.module';
 import { BranchSeedModule } from './branch/branch-seed.module';
+import { VehicleCatalogSeedModule } from './vehicle-catalog/vehicle-catalog-seed.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { BranchSeedModule } from './branch/branch-seed.module';
     TenantSeedModule,
     AccessSeedModule,
     BranchSeedModule,
+    VehicleCatalogSeedModule,
     ConfigModule.forRoot({
       isGlobal: true,
       load: [databaseConfig, appConfig],

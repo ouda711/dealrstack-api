@@ -15,6 +15,11 @@ const compat = new FlatCompat({
 });
 
 export default [
+  {
+    ignores: [
+      'src/database/seeds/relational/vehicle-catalog/data/vehicle-brands-from-carstrel.seed.ts',
+    ],
+  },
   ...compat.extends(
     'plugin:@typescript-eslint/recommended',
     'plugin:prettier/recommended',
