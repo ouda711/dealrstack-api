@@ -10,5 +10,7 @@ export type FileConfig = {
   secretAccessKey?: string;
   awsDefaultS3Bucket?: string;
   awsS3Region?: string;
+  /** Optional public base URL for uploaded objects (e.g. CloudFront). No trailing slash. */
+  publicAssetBaseUrl?: string;
   maxFileSize: number;
 };

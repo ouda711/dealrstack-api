@@ -1,5 +1,8 @@
 import { Module } from '@nestjs/common';
+import { MulterModule } from '@nestjs/platform-express';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AllConfigType } from '../config/config.type';
 import { RolePermissionEntity } from '../access/infrastructure/persistence/relational/entities/role-permission.entity';
 import { TenantMembershipEntity } from '../access/infrastructure/persistence/relational/entities/tenant-membership.entity';
 import { PermissionsGuard } from '../access/permissions.guard';
@@ -18,11 +21,20 @@ import { VehicleTrimEntity } from './infrastructure/persistence/relational/entit
 import { VehicleEntity } from './infrastructure/persistence/relational/entities/vehicle.entity';
 import { VehiclesController } from './vehicles.controller';
 import { VehiclesService } from './vehicles.service';
+import { createVehicleAttachmentMulterOptions } from './vehicle-attachment.multer';
 
 @Module({
   imports: [
     AuditTrailModule,
     TenantsModule,
+    MulterModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService<AllConfigType>) =>
+        createVehicleAttachmentMulterOptions(
+          configService.get('file.maxFileSize', { infer: true }) ?? 0,
+        ),
+    }),
     TypeOrmModule.forFeature([
       BranchEntity,
       RolePermissionEntity,

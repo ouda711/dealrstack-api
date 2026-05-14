@@ -6,16 +6,20 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseEnumPipe,
   Patch,
   Post,
   Query,
   Request,
   SerializeOptions,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiBody,
+  ApiConsumes,
   ApiCreatedResponse,
   ApiNoContentResponse,
   ApiOkResponse,
@@ -25,6 +29,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { RequirePermissions } from '../access/permissions.decorator';
 import { PermissionsGuard } from '../access/permissions.guard';
 import { CreateVehicleDocumentDto } from './dto/create-vehicle-document.dto';
@@ -32,6 +37,12 @@ import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { CreateVehicleMediaDto } from './dto/create-vehicle-media.dto';
 import { UpdateVehicleDocumentDto } from './dto/update-vehicle-document.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
+import { VehicleAttachmentPresignDto } from './dto/vehicle-attachment-presign.dto';
+import {
+  VehicleAttachmentPresignResponseDto,
+  VehicleAttachmentUploadResponseDto,
+} from './dto/vehicle-attachment-upload-response.dto';
+import { VehicleAttachmentUploadKind } from './dto/vehicle-attachment-upload-kind.enum';
 import { VehicleBodyTypeEntity } from './infrastructure/persistence/relational/entities/vehicle-body-type.entity';
 import { VehicleBrandEntity } from './infrastructure/persistence/relational/entities/vehicle-brand.entity';
 import { VehicleEngineEntity } from './infrastructure/persistence/relational/entities/vehicle-engine.entity';
@@ -219,6 +230,104 @@ export class VehiclesController {
   ): Promise<VehicleEngineEntity[]> {
     return this.vehiclesService.findCatalogEngines(
       modelId ? Number(modelId) : undefined,
+    );
+  }
+
+  @ApiCreatedResponse({
+    type: VehicleAttachmentPresignResponseDto,
+  })
+  @ApiOperation({
+    summary: 'Presign a vehicle attachment upload (S3 presigned driver only)',
+    description:
+      'Returns a short-lived PUT URL and the public file URL to store on the vehicle after upload. Requires FILE_DRIVER=s3-presigned.',
+  })
+  @ApiBody({ type: VehicleAttachmentPresignDto })
+  @SerializeOptions({
+    groups: ['me'],
+  })
+  @Post(':id/attachments/presign')
+  @RequirePermissions('vehicles.manage')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiParam({
+    name: 'tenantId',
+    type: Number,
+    required: true,
+  })
+  @ApiParam({
+    name: 'id',
+    type: Number,
+    required: true,
+  })
+  presignVehicleAttachment(
+    @Param('tenantId') tenantId: number,
+    @Param('id') id: VehicleEntity['id'],
+    @Body() dto: VehicleAttachmentPresignDto,
+    @Request() request,
+  ): Promise<VehicleAttachmentPresignResponseDto> {
+    return this.vehiclesService.presignVehicleAttachment(
+      tenantId,
+      id,
+      dto,
+      request.user,
+    );
+  }
+
+  @ApiCreatedResponse({
+    type: VehicleAttachmentUploadResponseDto,
+  })
+  @ApiOperation({
+    summary: 'Upload a vehicle attachment (local file driver only)',
+    description:
+      'Multipart upload stored under ./files and served via GET /api/v1/files/:path. Requires FILE_DRIVER=local. Use kind=gallery for images or kind=document for PDFs.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  @ApiQuery({
+    name: 'kind',
+    enum: VehicleAttachmentUploadKind,
+    required: true,
+  })
+  @UseInterceptors(FileInterceptor('file'))
+  @SerializeOptions({
+    groups: ['me'],
+  })
+  @Post(':id/attachments')
+  @RequirePermissions('vehicles.manage')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiParam({
+    name: 'tenantId',
+    type: Number,
+    required: true,
+  })
+  @ApiParam({
+    name: 'id',
+    type: Number,
+    required: true,
+  })
+  uploadVehicleAttachment(
+    @Param('tenantId') tenantId: number,
+    @Param('id') id: VehicleEntity['id'],
+    @Query('kind', new ParseEnumPipe(VehicleAttachmentUploadKind))
+    kind: VehicleAttachmentUploadKind,
+    @UploadedFile() file: Express.Multer.File,
+    @Request() request,
+  ): Promise<VehicleAttachmentUploadResponseDto> {
+    return this.vehiclesService.uploadVehicleAttachmentMultipart(
+      tenantId,
+      id,
+      kind,
+      file,
+      request.user,
     );
   }
 

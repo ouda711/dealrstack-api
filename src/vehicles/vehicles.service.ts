@@ -1,10 +1,15 @@
+import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import {
   ForbiddenException,
   HttpStatus,
   Injectable,
   NotFoundException,
+  PayloadTooLargeException,
   UnprocessableEntityException,
 } from '@nestjs/common';
+import { randomStringGenerator } from '@nestjs/common/utils/random-string-generator.util';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FindOneOptions, Repository } from 'typeorm';
 import { RolePermissionEntity } from '../access/infrastructure/persistence/relational/entities/role-permission.entity';
@@ -18,11 +23,15 @@ import { RoleEnum } from '../roles/roles.enum';
 import { Tenant } from '../tenants/domain/tenant';
 import { TenantsService } from '../tenants/tenants.service';
 import { User } from '../users/domain/user';
+import { AllConfigType } from '../config/config.type';
+import { FileDriver } from '../files/config/file-config.type';
 import { UserEntity } from '../users/infrastructure/persistence/relational/entities/user.entity';
 import { CreateVehicleDocumentDto } from './dto/create-vehicle-document.dto';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { CreateVehicleMediaDto } from './dto/create-vehicle-media.dto';
 import { UpdateVehicleDocumentDto } from './dto/update-vehicle-document.dto';
+import { VehicleAttachmentPresignDto } from './dto/vehicle-attachment-presign.dto';
+import { VehicleAttachmentUploadKind } from './dto/vehicle-attachment-upload-kind.enum';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 import { VehicleDocumentEntity } from './infrastructure/persistence/relational/entities/vehicle-document.entity';
 import { VehicleBodyTypeEntity } from './infrastructure/persistence/relational/entities/vehicle-body-type.entity';
@@ -37,6 +46,7 @@ import {
   VehicleListingType,
   VehicleStatus,
 } from './infrastructure/persistence/relational/entities/vehicle.entity';
+import { assertVehicleAttachmentFileNameAllowed } from './vehicle-attachment.multer';
 
 type VehicleActor = Pick<User, 'id' | 'role'>;
 type ResolvedVehicleCatalog = {
@@ -50,6 +60,8 @@ type ResolvedVehicleCatalog = {
 
 @Injectable()
 export class VehiclesService {
+  private s3Client: S3Client | null = null;
+
   constructor(
     @InjectRepository(VehicleEntity)
     private readonly vehicleRepository: Repository<VehicleEntity>,
@@ -79,6 +91,7 @@ export class VehiclesService {
     private readonly vehicleDocumentRepository: Repository<VehicleDocumentEntity>,
     private readonly tenantsService: TenantsService,
     private readonly auditTrailService: AuditTrailService,
+    private readonly configService: ConfigService<AllConfigType>,
   ) {}
 
   findCatalogBrands(): Promise<VehicleBrandEntity[]> {
@@ -280,6 +293,113 @@ export class VehiclesService {
     });
 
     return saved;
+  }
+
+  async presignVehicleAttachment(
+    tenantId: Tenant['id'],
+    vehicleId: VehicleEntity['id'],
+    dto: VehicleAttachmentPresignDto,
+    actor: VehicleActor,
+  ): Promise<{ uploadUrl: string; fileUrl: string; objectKey: string }> {
+    if (
+      this.configService.get('file.driver', { infer: true }) !==
+      FileDriver.S3_PRESIGNED
+    ) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        errors: {
+          file: 'vehiclePresignRequiresS3PresignedDriver',
+        },
+      });
+    }
+
+    await this.getTenantOrThrow(tenantId);
+    const vehicle = await this.getVehicleOrThrow(tenantId, vehicleId);
+
+    await this.ensureCanManageVehicleBranch(
+      Number(tenantId),
+      vehicle.branch || null,
+      actor,
+    );
+
+    assertVehicleAttachmentFileNameAllowed(dto.kind, dto.fileName);
+
+    const maxFileSize =
+      this.configService.get('file.maxFileSize', { infer: true }) ?? 0;
+    if (dto.fileSize > maxFileSize) {
+      throw new PayloadTooLargeException({
+        statusCode: HttpStatus.PAYLOAD_TOO_LARGE,
+        error: 'Payload Too Large',
+        message: 'File too large',
+      });
+    }
+
+    const objectKey = `${randomStringGenerator()}.${dto.fileName
+      .split('.')
+      .pop()
+      ?.toLowerCase()}`;
+
+    const bucket = this.configService.getOrThrow('file.awsDefaultS3Bucket', {
+      infer: true,
+    });
+
+    const s3 = this.getS3Client();
+    const contentType = this.attachmentContentTypeForFileName(dto.fileName);
+    const command = new PutObjectCommand({
+      Bucket: bucket,
+      Key: objectKey,
+      ContentLength: dto.fileSize,
+      ...(contentType ? { ContentType: contentType } : {}),
+    });
+    const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 3600 });
+    const fileUrl = this.buildS3PublicAssetUrl(objectKey);
+
+    return { uploadUrl, fileUrl, objectKey };
+  }
+
+  async uploadVehicleAttachmentMultipart(
+    tenantId: Tenant['id'],
+    vehicleId: VehicleEntity['id'],
+    kind: VehicleAttachmentUploadKind,
+    file: Express.Multer.File,
+    actor: VehicleActor,
+  ): Promise<{ fileUrl: string; objectKey: string }> {
+    if (
+      this.configService.get('file.driver', { infer: true }) !==
+      FileDriver.LOCAL
+    ) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        errors: {
+          file: 'vehicleMultipartRequiresLocalDriver',
+        },
+      });
+    }
+
+    if (!file) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        errors: {
+          file: 'selectFile',
+        },
+      });
+    }
+
+    await this.getTenantOrThrow(tenantId);
+    const vehicle = await this.getVehicleOrThrow(tenantId, vehicleId);
+
+    await this.ensureCanManageVehicleBranch(
+      Number(tenantId),
+      vehicle.branch || null,
+      actor,
+    );
+
+    assertVehicleAttachmentFileNameAllowed(kind, file.originalname);
+
+    const objectKey = file.filename;
+    const fileUrl = this.buildLocalPublicFileUrl(objectKey);
+
+    return { fileUrl, objectKey };
   }
 
   async removeVehicleMedia(
@@ -603,6 +723,77 @@ export class VehiclesService {
       description: `vehicle ${this.getVehicleLabel(vehicle)} was deleted`,
       metadata: this.getVehicleAuditSnapshot(vehicle),
     });
+  }
+
+  private getS3Client(): S3Client {
+    if (!this.s3Client) {
+      this.s3Client = new S3Client({
+        region: this.configService.get('file.awsS3Region', { infer: true }),
+        credentials: {
+          accessKeyId: this.configService.getOrThrow('file.accessKeyId', {
+            infer: true,
+          }),
+          secretAccessKey: this.configService.getOrThrow(
+            'file.secretAccessKey',
+            { infer: true },
+          ),
+        },
+      });
+    }
+    return this.s3Client;
+  }
+
+  private attachmentContentTypeForFileName(
+    fileName: string,
+  ): string | undefined {
+    const ext = fileName.split('.').pop()?.toLowerCase();
+    if (!ext) {
+      return undefined;
+    }
+    const map: Record<string, string> = {
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      png: 'image/png',
+      gif: 'image/gif',
+      webp: 'image/webp',
+      pdf: 'application/pdf',
+    };
+    return map[ext];
+  }
+
+  private buildS3PublicAssetUrl(key: string): string {
+    const base = this.configService.get('file.publicAssetBaseUrl', {
+      infer: true,
+    });
+    if (base) {
+      return `${base.replace(/\/$/, '')}/${key}`;
+    }
+    const bucket = this.configService.getOrThrow('file.awsDefaultS3Bucket', {
+      infer: true,
+    });
+    const region = this.configService.getOrThrow('file.awsS3Region', {
+      infer: true,
+    });
+    return `https://${bucket}.s3.${region}.amazonaws.com/${key}`;
+  }
+
+  private resolveAppOrigin(): string {
+    const backendDomain = this.configService.getOrThrow('app.backendDomain', {
+      infer: true,
+    });
+    const port = this.configService.get('app.port', { infer: true });
+    const url = new URL(
+      backendDomain.includes('://') ? backendDomain : `http://${backendDomain}`,
+    );
+    if (!url.port && port) {
+      url.port = String(port);
+    }
+    return url.origin;
+  }
+
+  private buildLocalPublicFileUrl(storedFileName: string): string {
+    const apiPrefix = this.configService.get('app.apiPrefix', { infer: true });
+    return `${this.resolveAppOrigin()}/${apiPrefix}/v1/files/${encodeURIComponent(storedFileName)}`;
   }
 
   private toVehiclePayload(
