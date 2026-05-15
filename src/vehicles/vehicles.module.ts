@@ -21,6 +21,7 @@ import { VehicleTrimEntity } from './infrastructure/persistence/relational/entit
 import { VehicleEntity } from './infrastructure/persistence/relational/entities/vehicle.entity';
 import { VehicleListingViewEntity } from './infrastructure/persistence/relational/entities/vehicle-listing-view.entity';
 import { VehicleShareLinkEntity } from './infrastructure/persistence/relational/entities/vehicle-share-link.entity';
+import { AiModule } from '../ai/ai.module';
 import { TenantEntity } from '../tenants/infrastructure/persistence/relational/entities/tenant.entity';
 import { PublicListingsController } from './public-listings.controller';
 import { VehicleMarketingController } from './vehicle-marketing.controller';
@@ -31,6 +32,7 @@ import { createVehicleAttachmentMulterOptions } from './vehicle-attachment.multe
 
 @Module({
   imports: [
+    AiModule,
     AuditTrailModule,
     TenantsModule,
     MulterModule.registerAsync({

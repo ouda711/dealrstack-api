@@ -22,6 +22,11 @@ import {
   normalizeListingReferrer,
   SHARE_CHANNELS,
 } from './vehicle-marketing.constants';
+import { DealrstackAiService } from '../ai/dealrstack-ai.service';
+import {
+  buildVehicleMarketingUserPrompt,
+  VEHICLE_MARKETING_SYSTEM_PROMPT,
+} from './vehicle-marketing-prompts';
 
 @Injectable()
 export class VehicleMarketingService {
@@ -35,6 +40,7 @@ export class VehicleMarketingService {
     @InjectRepository(VehicleShareLinkEntity)
     private readonly shareLinkRepository: Repository<VehicleShareLinkEntity>,
     private readonly configService: ConfigService<AllConfigType>,
+    private readonly dealrstackAiService: DealrstackAiService,
   ) {}
 
   async getShareProfile(
@@ -108,6 +114,61 @@ export class VehicleMarketingService {
   ): Promise<VehicleMarketingGenerateResponseDto> {
     const { vehicle } = await this.getVehicleWithTenant(tenantId, vehicleId);
     return this.buildTemplateCopy(vehicle, dto.purpose, dto.tone ?? 'friendly');
+  }
+
+  /**
+   * Streams AI-generated marketing copy over SSE (see controller).
+   * Falls back to template copy when no AI keys succeed.
+   */
+  async streamGenerateCopy(
+    tenantId: number,
+    vehicleId: number,
+    dto: VehicleMarketingGenerateDto,
+    writeEvent: (payload: Record<string, unknown>) => void,
+  ): Promise<void> {
+    const { vehicle } = await this.getVehicleWithTenant(tenantId, vehicleId);
+    const tone = dto.tone ?? 'friendly';
+    const fallback = this.buildTemplateCopy(vehicle, dto.purpose, tone);
+
+    const userPrompt = buildVehicleMarketingUserPrompt(
+      vehicle,
+      dto.purpose,
+      tone,
+    );
+
+    const aiResult = await this.dealrstackAiService.streamMarketingCopy(
+      VEHICLE_MARKETING_SYSTEM_PROMPT,
+      userPrompt,
+      (text) => writeEvent({ type: 'delta', text }),
+    );
+
+    if (aiResult) {
+      const extracted = this.extractHashtagsFromContent(aiResult.fullText);
+      const hashtags =
+        dto.purpose === 'hashtags'
+          ? extracted
+          : extracted.length > 0
+            ? extracted
+            : (fallback.hashtags ?? []);
+
+      writeEvent({
+        type: 'done',
+        purpose: dto.purpose,
+        provider: aiResult.provider,
+        hashtags,
+        generatedAt: new Date().toISOString(),
+      });
+      return;
+    }
+
+    writeEvent({ type: 'delta', text: fallback.content });
+    writeEvent({
+      type: 'done',
+      purpose: dto.purpose,
+      provider: 'template',
+      hashtags: fallback.hashtags ?? [],
+      generatedAt: new Date().toISOString(),
+    });
   }
 
   async getPublicListing(
@@ -400,5 +461,10 @@ export class VehicleMarketingService {
       generatedAt: new Date().toISOString(),
       provider: 'template',
     };
+  }
+
+  private extractHashtagsFromContent(content: string): string[] {
+    const matches = content.match(/#[\w]+/gu) ?? [];
+    return [...new Set(matches)].slice(0, 12);
   }
 }

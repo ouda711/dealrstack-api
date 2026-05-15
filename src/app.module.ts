@@ -10,6 +10,7 @@ import fileConfig from './files/config/file.config';
 import facebookConfig from './auth-facebook/config/facebook.config';
 import googleConfig from './auth-google/config/google.config';
 import appleConfig from './auth-apple/config/apple.config';
+import aiConfig from './ai/config/ai.config';
 import path from 'path';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -32,6 +33,7 @@ import { AccessModule } from './access/access.module';
 import { BranchesModule } from './branches/branches.module';
 import { AuditTrailModule } from './audit-trail/audit-trail.module';
 import { VehiclesModule } from './vehicles/vehicles.module';
+import { SettingsModule } from './settings/settings.module';
 
 // <database-block>
 const infrastructureDatabaseModule = (databaseConfig() as DatabaseConfig)
@@ -60,6 +62,7 @@ const infrastructureDatabaseModule = (databaseConfig() as DatabaseConfig)
         facebookConfig,
         googleConfig,
         appleConfig,
+        aiConfig,
       ],
       envFilePath: ['.env'],
     }),
@@ -102,6 +105,7 @@ const infrastructureDatabaseModule = (databaseConfig() as DatabaseConfig)
     BranchesModule,
     AuditTrailModule,
     VehiclesModule,
+    SettingsModule,
   ],
 })
 export class AppModule {}

@@ -7,6 +7,7 @@ import {
   Param,
   Post,
   Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -14,6 +15,7 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiParam,
+  ApiProduces,
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
@@ -27,6 +29,7 @@ import {
   VehicleShareProfileDto,
 } from './dto/vehicle-marketing-response.dto';
 import { VehicleMarketingService } from './vehicle-marketing.service';
+import type { Response } from 'express';
 
 @ApiBearerAuth()
 @UseGuards(AuthGuard('jwt'), PermissionsGuard)
@@ -97,5 +100,50 @@ export class VehicleMarketingController {
     @Body() dto: VehicleMarketingGenerateDto,
   ): Promise<VehicleMarketingGenerateResponseDto> {
     return this.vehicleMarketingService.generateCopy(tenantId, vehicleId, dto);
+  }
+
+  @ApiProduces('text/event-stream')
+  @ApiOperation({
+    summary: 'Stream marketing copy (Server-Sent Events)',
+    description:
+      'Streams AI-generated tokens from the API (DeepSeek by default, then OpenAI/Gemini fallbacks). Falls back to template copy when AI is unavailable. Events are JSON objects in SSE `data` lines: `{type:"delta",text}`, `{type:"done",...}`, `{type:"error",message}`.',
+  })
+  @Post('generate/stream')
+  @RequirePermissions('vehicles.manage')
+  @HttpCode(HttpStatus.OK)
+  @ApiParam({ name: 'tenantId', type: Number, required: true })
+  @ApiParam({ name: 'vehicleId', type: Number, required: true })
+  async generateCopyStream(
+    @Param('tenantId') tenantId: number,
+    @Param('vehicleId') vehicleId: number,
+    @Body() dto: VehicleMarketingGenerateDto,
+    @Res({ passthrough: false }) res: Response,
+  ): Promise<void> {
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+
+    const writeEvent = (payload: Record<string, unknown>) => {
+      res.write(`data: ${JSON.stringify(payload)}\n\n`);
+    };
+
+    try {
+      await this.vehicleMarketingService.streamGenerateCopy(
+        Number(tenantId),
+        Number(vehicleId),
+        dto,
+        writeEvent,
+      );
+    } catch (e) {
+      writeEvent({
+        type: 'error',
+        message:
+          e instanceof Error
+            ? e.message
+            : 'Marketing stream failed unexpectedly',
+      });
+    }
+    res.end();
   }
 }

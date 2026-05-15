@@ -62,3 +62,28 @@ GOOGLE_CLIENT_SECRET=
 APPLE_APP_AUDIENCE=[]
 
 WORKER_HOST=redis://redis:6379/1
+
+# AI — DeepSeek default when keys exist; otherwise first available provider (OpenAI/Gemini).
+# OPEN_AI / OPEN_AI_API_KEY are aliases for OPENAI_API_KEY (same for OPEN_AI_MODEL ↔ OPENAI_MODEL).
+AI_TEXT_PRIMARY_PROVIDER=deepseek
+DEEPSEEK_API_KEY=
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MODEL=deepseek-chat
+OPENAI_API_KEY=
+OPEN_AI=
+OPEN_AI_API_KEY=
+OPENAI_MODEL=gpt-4o-mini
+OPEN_AI_MODEL=
+GEMINI_API_KEY=
+GEMINI_MODEL=gemini-2.0-flash
+GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
+AI_IMAGE_PRIMARY_PROVIDER=gemini
+OPENAI_IMAGE_MODEL=dall-e-3
+
+# Generic JSON settings (GET/PUT /v1/settings/:name — requires platform.manage).
+# Prefer storing secrets here instead of .env. AI merges DB row `ai_config` over env defaults.
+#
+# PUT /v1/settings/ai_config
+# {"textPrimaryProvider":"deepseek","deepseek":{"apiKey":"…","model":"deepseek-chat"},"openai":{"apiKey":"…"},"gemini":{"apiKey":"…","imageModel":"gemini-2.5-flash-image"}}
+#
+# Other integrations can use arbitrary names (e.g. settlement_config) with nested JSON like your settlement maps.
