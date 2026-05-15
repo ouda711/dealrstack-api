@@ -5,6 +5,7 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  Matches,
   MaxLength,
   MinLength,
 } from 'class-validator';
@@ -42,6 +43,19 @@ export class VehicleMarketingFlyerArtifactDto {
     example: 'midnight',
   })
   theme?: VehicleMarketingFlyerTheme;
+
+  @ApiPropertyOptional({
+    description:
+      'Optional hero image URL (https). Prefer listing gallery URLs; set in the flyer editor.',
+    example: 'https://cdn.example.com/listings/photo.jpg',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2048)
+  @Matches(/^https?:\/\/.+/i, {
+    message: 'heroImageUrl must start with http:// or https://',
+  })
+  heroImageUrl?: string;
 }
 
 export class CreateFlyerMarketingThreadDto {

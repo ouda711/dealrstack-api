@@ -1,7 +1,7 @@
 import {
+  BadRequestException,
   Injectable,
   NotFoundException,
-  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -23,32 +23,10 @@ import {
   buildFlyerVehicleFactsBlock,
   VEHICLE_MARKETING_FLYER_SYSTEM_PROMPT,
 } from './vehicle-marketing-flyer-prompts';
-
-function parseFlyerArtifactFromText(
-  fullText: string,
-): Record<string, unknown> | null {
-  const matches = [...fullText.matchAll(/```(?:json)?\s*([\s\S]*?)```/gi)];
-  if (!matches.length) {
-    return null;
-  }
-  const inner = matches[matches.length - 1]?.[1]?.trim();
-  if (!inner) {
-    return null;
-  }
-  try {
-    const obj = JSON.parse(inner) as Record<string, unknown>;
-    if (
-      obj &&
-      typeof obj.headline === 'string' &&
-      typeof obj.priceLine === 'string'
-    ) {
-      return obj;
-    }
-  } catch {
-    /* ignore invalid JSON */
-  }
-  return null;
-}
+import {
+  normalizeFlyerArtifactParsed,
+  parseFlyerArtifactFromText,
+} from './vehicle-marketing-flyer-artifact.util';
 
 function messageToDto(
   entity: VehicleMarketingMessageEntity,
@@ -295,7 +273,15 @@ export class VehicleMarketingFlyerService {
     }
 
     if (dto.artifact !== undefined) {
-      message.artifact = dto.artifact;
+      const normalized = normalizeFlyerArtifactParsed(
+        dto.artifact as Record<string, unknown>,
+      );
+      if (!normalized) {
+        throw new BadRequestException(
+          'Flyer artifact requires non-empty headline and priceLine',
+        );
+      }
+      message.artifact = normalized;
     }
 
     await this.messageRepository.save(message);
