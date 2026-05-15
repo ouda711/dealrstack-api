@@ -127,9 +127,9 @@ export class VehicleMarketingFlyerThreadsController {
 
   @ApiProduces('text/event-stream')
   @ApiOperation({
-    summary: 'Append user message and stream assistant reply (SSE)',
+    summary: 'Append user message and stream AI assistant reply (SSE)',
     description:
-      'Events: `{type:"delta",text}`, `{type:"done",assistantMessageId,provider,artifact}`, `{type:"error",message}`.',
+      'Streams a multi-turn marketing reply from DealrStack AI (DeepSeek, OpenAI, or Gemini per server config, with credential fallbacks). Persists the final assistant message and parsed flyer artifact. If no provider is configured, the server streams a configuration notice instead of model output. SSE events: `{type:"delta",text}`, `{type:"done",assistantMessageId,provider,artifact}`, `{type:"error",message}` — `provider` is the text model used or `template` when falling back.',
   })
   @Post(':threadId/stream')
   @RequirePermissions('vehicles.manage')
