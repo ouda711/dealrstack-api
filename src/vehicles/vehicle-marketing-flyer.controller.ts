@@ -11,6 +11,7 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import {
   ApiBearerAuth,
   ApiOkResponse,
@@ -33,6 +34,7 @@ import {
   VehicleMarketingFlyerThreadSummaryDto,
 } from './dto/vehicle-marketing-flyer.dto';
 import { VehicleMarketingFlyerService } from './vehicle-marketing-flyer.service';
+import { FLYER_STREAM_THROTTLE } from './flyer-stream-throttle.config';
 
 @ApiBearerAuth()
 @UseGuards(AuthGuard('jwt'), PermissionsGuard)
@@ -132,6 +134,13 @@ export class VehicleMarketingFlyerThreadsController {
       'Streams a multi-turn marketing reply from DealrStack AI (DeepSeek, OpenAI, or Gemini per server config, with credential fallbacks). Persists the final assistant message and parsed flyer artifact. If no provider is configured, the server streams a configuration notice instead of model output. SSE events: `{type:"delta",text}`, `{type:"done",assistantMessageId,provider,artifact}`, `{type:"error",message}` — `provider` is the text model used or `template` when falling back.',
   })
   @Post(':threadId/stream')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({
+    [FLYER_STREAM_THROTTLE.name]: {
+      ttl: FLYER_STREAM_THROTTLE.ttl,
+      limit: FLYER_STREAM_THROTTLE.limit,
+    },
+  })
   @RequirePermissions('vehicles.manage')
   @HttpCode(HttpStatus.OK)
   @ApiParam({ name: 'tenantId', type: Number })

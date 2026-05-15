@@ -86,4 +86,9 @@ OPENAI_IMAGE_MODEL=dall-e-3
 # PUT /v1/settings/ai_config
 # {"textPrimaryProvider":"deepseek","deepseek":{"apiKey":"…","model":"deepseek-chat"},"openai":{"apiKey":"…"},"gemini":{"apiKey":"…","imageModel":"gemini-2.5-flash-image"}}
 #
-# Other integrations can use arbitrary names (e.g. settlement_config) with nested JSON like your settlement maps.
+# Other integrations can use arbitrary JSON names (e.g. settlement_config) with nested JSON like your settlement maps.
+
+# Vehicle marketing flyer SSE — POST …/marketing/flyer-threads/:threadId/stream
+# TTL/limit apply only to that route (in-memory counter per IP).
+FLYER_STREAM_THROTTLE_TTL_MS=60000
+FLYER_STREAM_THROTTLE_LIMIT=30

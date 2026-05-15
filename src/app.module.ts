@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { UsersModule } from './users/users.module';
 import { FilesModule } from './files/files.module';
 import { AuthModule } from './auth/auth.module';
@@ -33,6 +34,7 @@ import { AccessModule } from './access/access.module';
 import { BranchesModule } from './branches/branches.module';
 import { AuditTrailModule } from './audit-trail/audit-trail.module';
 import { VehiclesModule } from './vehicles/vehicles.module';
+import { FLYER_STREAM_THROTTLE } from './vehicles/flyer-stream-throttle.config';
 import { SettingsModule } from './settings/settings.module';
 
 // <database-block>
@@ -67,6 +69,13 @@ const infrastructureDatabaseModule = (databaseConfig() as DatabaseConfig)
       envFilePath: ['.env'],
     }),
     infrastructureDatabaseModule,
+    ThrottlerModule.forRoot([
+      {
+        name: FLYER_STREAM_THROTTLE.name,
+        ttl: FLYER_STREAM_THROTTLE.ttl,
+        limit: FLYER_STREAM_THROTTLE.limit,
+      },
+    ]),
     I18nModule.forRootAsync({
       useFactory: (configService: ConfigService<AllConfigType>) => ({
         fallbackLanguage: configService.getOrThrow('app.fallbackLanguage', {
