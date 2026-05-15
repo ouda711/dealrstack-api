@@ -237,6 +237,13 @@ export class VehicleEntity extends EntityRelationalHelper {
   @Column({ default: true })
   isActive: boolean;
 
+  @Index()
+  @Column({ type: String, length: 64, nullable: true })
+  listingSlug?: string | null;
+
+  @Column({ type: 'int', default: 0 })
+  shareLinkClickCount: number;
+
   @CreateDateColumn()
   createdAt: Date;
 

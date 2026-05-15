@@ -19,6 +19,12 @@ import { VehicleDocumentEntity } from './infrastructure/persistence/relational/e
 import { VehicleMediaEntity } from './infrastructure/persistence/relational/entities/vehicle-media.entity';
 import { VehicleTrimEntity } from './infrastructure/persistence/relational/entities/vehicle-trim.entity';
 import { VehicleEntity } from './infrastructure/persistence/relational/entities/vehicle.entity';
+import { VehicleListingViewEntity } from './infrastructure/persistence/relational/entities/vehicle-listing-view.entity';
+import { VehicleShareLinkEntity } from './infrastructure/persistence/relational/entities/vehicle-share-link.entity';
+import { TenantEntity } from '../tenants/infrastructure/persistence/relational/entities/tenant.entity';
+import { PublicListingsController } from './public-listings.controller';
+import { VehicleMarketingController } from './vehicle-marketing.controller';
+import { VehicleMarketingService } from './vehicle-marketing.service';
 import { VehiclesController } from './vehicles.controller';
 import { VehiclesService } from './vehicles.service';
 import { createVehicleAttachmentMulterOptions } from './vehicle-attachment.multer';
@@ -49,10 +55,17 @@ import { createVehicleAttachmentMulterOptions } from './vehicle-attachment.multe
       VehicleMediaEntity,
       VehicleModelEntity,
       VehicleTrimEntity,
+      VehicleListingViewEntity,
+      VehicleShareLinkEntity,
+      TenantEntity,
     ]),
   ],
-  controllers: [VehiclesController],
-  providers: [VehiclesService, PermissionsGuard],
-  exports: [VehiclesService],
+  controllers: [
+    VehiclesController,
+    VehicleMarketingController,
+    PublicListingsController,
+  ],
+  providers: [VehiclesService, VehicleMarketingService, PermissionsGuard],
+  exports: [VehiclesService, VehicleMarketingService],
 })
 export class VehiclesModule {}
