@@ -30,6 +30,6 @@ import { PermissionsGuard } from './permissions.guard';
   ],
   controllers: [AccessController],
   providers: [AccessService, PermissionsGuard],
-  exports: [AccessService, PermissionsGuard],
+  exports: [AccessService, PermissionsGuard, TypeOrmModule],
 })
 export class AccessModule {}

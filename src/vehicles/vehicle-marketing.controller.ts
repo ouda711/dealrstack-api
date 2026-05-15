@@ -83,32 +83,13 @@ export class VehicleMarketingController {
     );
   }
 
-  @ApiOkResponse({ type: VehicleMarketingGenerateResponseDto })
-  @ApiOperation({
-    summary: 'Generate marketing copy for a vehicle',
-    description:
-      'Template-based copy for social posts, flyers, and hashtags. Wire OpenAI/Gemini later via the same contract.',
-  })
-  @Post('generate')
-  @RequirePermissions('vehicles.manage')
-  @HttpCode(HttpStatus.OK)
-  @ApiParam({ name: 'tenantId', type: Number, required: true })
-  @ApiParam({ name: 'vehicleId', type: Number, required: true })
-  generateCopy(
-    @Param('tenantId') tenantId: number,
-    @Param('vehicleId') vehicleId: number,
-    @Body() dto: VehicleMarketingGenerateDto,
-  ): Promise<VehicleMarketingGenerateResponseDto> {
-    return this.vehicleMarketingService.generateCopy(tenantId, vehicleId, dto);
-  }
-
   @ApiProduces('text/event-stream')
   @ApiOperation({
     summary: 'Stream marketing copy (Server-Sent Events)',
     description:
-      'Streams AI-generated tokens from the API (DeepSeek by default, then OpenAI/Gemini fallbacks). Falls back to template copy when AI is unavailable. Events are JSON objects in SSE `data` lines: `{type:"delta",text}`, `{type:"done",...}`, `{type:"error",message}`.',
+      'Streams AI-generated tokens from the API (DeepSeek by default, then OpenAI/Gemini fallbacks). Falls back to template copy when AI is unavailable. Events are JSON objects in SSE `data` lines: `{type:"delta",text}`, `{type:"done",...}`, `{type:"error",message}`. Preferred URL: POST .../marketing/stream (legacy alias: .../marketing/generate/stream).',
   })
-  @Post('generate/stream')
+  @Post(['stream', 'generate/stream'])
   @RequirePermissions('vehicles.manage')
   @HttpCode(HttpStatus.OK)
   @ApiParam({ name: 'tenantId', type: Number, required: true })
@@ -145,5 +126,24 @@ export class VehicleMarketingController {
       });
     }
     res.end();
+  }
+
+  @ApiOkResponse({ type: VehicleMarketingGenerateResponseDto })
+  @ApiOperation({
+    summary: 'Generate marketing copy for a vehicle',
+    description:
+      'Template-based copy for social posts, flyers, and hashtags. Wire OpenAI/Gemini later via the same contract.',
+  })
+  @Post('generate')
+  @RequirePermissions('vehicles.manage')
+  @HttpCode(HttpStatus.OK)
+  @ApiParam({ name: 'tenantId', type: Number, required: true })
+  @ApiParam({ name: 'vehicleId', type: Number, required: true })
+  generateCopy(
+    @Param('tenantId') tenantId: number,
+    @Param('vehicleId') vehicleId: number,
+    @Body() dto: VehicleMarketingGenerateDto,
+  ): Promise<VehicleMarketingGenerateResponseDto> {
+    return this.vehicleMarketingService.generateCopy(tenantId, vehicleId, dto);
   }
 }

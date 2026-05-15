@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import OpenAI from 'openai';
 import type { AiConfig, AiTextProviderId } from './config/ai-config.type';
 import { AiRuntimeConfigService } from './ai-runtime-config.service';
@@ -153,25 +153,28 @@ export class DealrstackAiService {
     user: string,
     onDelta: (text: string) => void,
   ): Promise<string> {
-    const genai = new GoogleGenAI({ apiKey });
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const genModel = genAI.getGenerativeModel({ model });
     const prompt = `${system}\n\n---\n\n${user}`;
-    const stream = await genai.models.generateContentStream({
-      model,
-      contents: prompt,
-    });
+    const { stream } = await genModel.generateContentStream(prompt);
 
     let aggregated = '';
     for await (const chunk of stream) {
-      const text = chunk.text ?? '';
-      if (!text) {
+      let piece = '';
+      try {
+        piece = chunk.text();
+      } catch {
         continue;
       }
-      let delta = text;
-      if (aggregated && text.startsWith(aggregated)) {
-        delta = text.slice(aggregated.length);
-        aggregated = text;
+      if (!piece) {
+        continue;
+      }
+      let delta = piece;
+      if (aggregated && piece.startsWith(aggregated)) {
+        delta = piece.slice(aggregated.length);
+        aggregated = piece;
       } else {
-        aggregated += text;
+        aggregated += piece;
       }
       if (delta) {
         onDelta(delta);
