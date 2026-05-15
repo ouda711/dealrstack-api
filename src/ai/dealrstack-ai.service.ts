@@ -34,7 +34,7 @@ export class DealrstackAiService {
         continue;
       }
       try {
-        const fullText = await this.streamWithProvider(
+        const fullText = await this.streamWithProviderSingleTurn(
           ai,
           provider,
           systemPrompt,
@@ -51,6 +51,44 @@ export class DealrstackAiService {
             message: err instanceof Error ? err.message : String(err),
           },
           'AI streaming provider failed; trying next',
+        );
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Multi-turn chat used by flyer studio / threaded marketing assistants.
+   */
+  async streamMarketingConversation(
+    systemPrompt: string,
+    conversation: { role: 'user' | 'assistant'; content: string }[],
+    onDelta: (text: string) => void,
+  ): Promise<{ provider: AiTextProviderId; fullText: string } | null> {
+    const ai = await this.aiRuntimeConfig.getAiConfig();
+    const order = this.textProviderOrder(ai);
+    for (const provider of order) {
+      if (!this.hasTextCredentials(provider, ai)) {
+        continue;
+      }
+      try {
+        const fullText = await this.streamConversationWithProvider(
+          ai,
+          provider,
+          systemPrompt,
+          conversation,
+          onDelta,
+        );
+        if (fullText.trim()) {
+          return { provider, fullText: fullText.trim() };
+        }
+      } catch (err) {
+        this.logger.warn(
+          {
+            provider,
+            message: err instanceof Error ? err.message : String(err),
+          },
+          'AI conversation streaming provider failed; trying next',
         );
       }
     }
@@ -79,11 +117,27 @@ export class DealrstackAiService {
     }
   }
 
-  private async streamWithProvider(
+  private async streamWithProviderSingleTurn(
     ai: AiConfig,
     provider: AiTextProviderId,
     system: string,
     user: string,
+    onDelta: (text: string) => void,
+  ): Promise<string> {
+    return this.streamConversationWithProvider(
+      ai,
+      provider,
+      system,
+      [{ role: 'user', content: user }],
+      onDelta,
+    );
+  }
+
+  private async streamConversationWithProvider(
+    ai: AiConfig,
+    provider: AiTextProviderId,
+    system: string,
+    conversation: { role: 'user' | 'assistant'; content: string }[],
     onDelta: (text: string) => void,
   ): Promise<string> {
     if (provider === 'deepseek') {
@@ -91,45 +145,48 @@ export class DealrstackAiService {
         apiKey: ai.deepseekApiKey,
         baseURL: ensureOpenAiBaseUrl(ai.deepseekBaseUrl),
       });
-      return this.streamOpenAiChat(
+      return this.streamOpenAiConversation(
         client,
         ai.deepseekModel,
         system,
-        user,
+        conversation,
         onDelta,
       );
     }
     if (provider === 'openai') {
       const client = new OpenAI({ apiKey: ai.openaiApiKey });
-      return this.streamOpenAiChat(
+      return this.streamOpenAiConversation(
         client,
         ai.openaiModel,
         system,
-        user,
+        conversation,
         onDelta,
       );
     }
-    return this.streamGeminiChat(
+    return this.streamGeminiConversation(
       ai.geminiApiKey!,
       ai.geminiModel,
       system,
-      user,
+      conversation,
       onDelta,
     );
   }
 
-  private async streamOpenAiChat(
+  private async streamOpenAiConversation(
     client: OpenAI,
     model: string,
     system: string,
-    user: string,
+    conversation: { role: 'user' | 'assistant'; content: string }[],
     onDelta: (text: string) => void,
   ): Promise<string> {
     const stream = await client.chat.completions.create({
       model,
       messages: [
         { role: 'system', content: system },
-        { role: 'user', content: user },
+        ...conversation.map((m) => ({
+          role: m.role,
+          content: m.content,
+        })),
       ],
       temperature: 0.7,
       stream: true,
@@ -146,20 +203,38 @@ export class DealrstackAiService {
     return full;
   }
 
-  private async streamGeminiChat(
+  private async streamGeminiConversation(
     apiKey: string,
     model: string,
-    system: string,
-    user: string,
+    systemInstruction: string,
+    conversation: { role: 'user' | 'assistant'; content: string }[],
     onDelta: (text: string) => void,
   ): Promise<string> {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const genModel = genAI.getGenerativeModel({ model });
-    const prompt = `${system}\n\n---\n\n${user}`;
-    const { stream } = await genModel.generateContentStream(prompt);
+    const genModel = genAI.getGenerativeModel({
+      model,
+      systemInstruction,
+    });
+
+    if (conversation.length === 0) {
+      return '';
+    }
+
+    const history = conversation.slice(0, -1).map((m) => ({
+      role: m.role === 'user' ? ('user' as const) : ('model' as const),
+      parts: [{ text: m.content }],
+    }));
+
+    const last = conversation[conversation.length - 1];
+    if (last.role !== 'user') {
+      throw new Error('Gemini conversation must end with a user turn');
+    }
+
+    const chat = genModel.startChat({ history });
+    const result = await chat.sendMessageStream(last.content);
 
     let aggregated = '';
-    for await (const chunk of stream) {
+    for await (const chunk of result.stream) {
       let piece = '';
       try {
         piece = chunk.text();

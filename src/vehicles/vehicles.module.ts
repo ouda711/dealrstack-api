@@ -20,10 +20,14 @@ import { VehicleMediaEntity } from './infrastructure/persistence/relational/enti
 import { VehicleTrimEntity } from './infrastructure/persistence/relational/entities/vehicle-trim.entity';
 import { VehicleEntity } from './infrastructure/persistence/relational/entities/vehicle.entity';
 import { VehicleListingViewEntity } from './infrastructure/persistence/relational/entities/vehicle-listing-view.entity';
+import { VehicleMarketingMessageEntity } from './infrastructure/persistence/relational/entities/vehicle-marketing-message.entity';
+import { VehicleMarketingThreadEntity } from './infrastructure/persistence/relational/entities/vehicle-marketing-thread.entity';
 import { VehicleShareLinkEntity } from './infrastructure/persistence/relational/entities/vehicle-share-link.entity';
 import { AiModule } from '../ai/ai.module';
 import { TenantEntity } from '../tenants/infrastructure/persistence/relational/entities/tenant.entity';
 import { PublicListingsController } from './public-listings.controller';
+import { VehicleMarketingFlyerThreadsController } from './vehicle-marketing-flyer.controller';
+import { VehicleMarketingFlyerService } from './vehicle-marketing-flyer.service';
 import { VehicleMarketingController } from './vehicle-marketing.controller';
 import { VehicleMarketingService } from './vehicle-marketing.service';
 import { VehiclesController } from './vehicles.controller';
@@ -58,6 +62,8 @@ import { createVehicleAttachmentMulterOptions } from './vehicle-attachment.multe
       VehicleModelEntity,
       VehicleTrimEntity,
       VehicleListingViewEntity,
+      VehicleMarketingMessageEntity,
+      VehicleMarketingThreadEntity,
       VehicleShareLinkEntity,
       TenantEntity,
     ]),
@@ -65,9 +71,19 @@ import { createVehicleAttachmentMulterOptions } from './vehicle-attachment.multe
   controllers: [
     VehiclesController,
     VehicleMarketingController,
+    VehicleMarketingFlyerThreadsController,
     PublicListingsController,
   ],
-  providers: [VehiclesService, VehicleMarketingService, PermissionsGuard],
-  exports: [VehiclesService, VehicleMarketingService],
+  providers: [
+    VehiclesService,
+    VehicleMarketingService,
+    VehicleMarketingFlyerService,
+    PermissionsGuard,
+  ],
+  exports: [
+    VehiclesService,
+    VehicleMarketingService,
+    VehicleMarketingFlyerService,
+  ],
 })
 export class VehiclesModule {}
