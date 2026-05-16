@@ -11,15 +11,18 @@ import { BranchesService } from '../branches/branches.service';
 import { SalesPipelineService } from '../sales-pipeline/sales-pipeline.service';
 import { TenantsService } from '../tenants/tenants.service';
 import {
+  FollowUpStatus,
   LeadPriority,
   LeadSource,
   LeadStatus,
   NotificationKind,
+  SalesActivityType,
 } from './domain/sales.enums';
 import { AssignSalesLeadDto } from './dto/assign-sales-lead.dto';
 import { CreateSalesPipelineDealDto } from './dto/create-sales-pipeline-deal.dto';
 import { MoveSalesDealStageDto } from './dto/move-sales-deal-stage.dto';
 import { ReorderSalesDealsDto } from './dto/reorder-sales-deals.dto';
+import { CreateSalesDealActivityDto } from './dto/create-sales-deal-activity.dto';
 import { UpdateSalesPipelineDealDto } from './dto/update-sales-pipeline-deal.dto';
 import { SalesWorkspaceSnapshotDto } from './domain/sales-workspace';
 import { SalesActivityEntity } from './infrastructure/persistence/relational/entities/sales-activity.entity';
@@ -257,6 +260,34 @@ export class SalesWorkspaceService {
     };
   }
 
+  async addDealActivity(
+    tenantId: number,
+    dealId: number,
+    dto: CreateSalesDealActivityDto,
+  ) {
+    const deal = await this.getDealOrThrow(tenantId, dealId);
+    const lead = await this.getLeadOrThrow(tenantId, deal.leadId);
+    const now = new Date();
+
+    await this.recordDealActivity(
+      tenantId,
+      deal.leadId,
+      deal.id,
+      dto.summary,
+      dto.type ?? SalesActivityType.Note,
+      false,
+    );
+
+    deal.lastActivityAt = now;
+    deal.inactiveDays = 0;
+    lead.lastActivityAt = now;
+
+    await this.leadRepository.save(lead);
+    await this.dealRepository.save(deal);
+
+    return this.getWorkspace(tenantId);
+  }
+
   async updatePipelineDeal(
     tenantId: number,
     dealId: number,
@@ -264,6 +295,11 @@ export class SalesWorkspaceService {
   ) {
     const deal = await this.getDealOrThrow(tenantId, dealId);
     const lead = await this.getLeadOrThrow(tenantId, deal.leadId);
+    const beforeStageKey = deal.stageKey;
+    const beforeTitle = deal.title;
+    const beforeAssigneeId = deal.assignedUserId;
+    const beforePriority = lead.priority;
+    const beforeVehicleId = lead.vehicleId ?? null;
 
     if (dto.stageKey !== undefined) {
       const pipeline = await this.salesPipelineService.getPipeline(tenantId);
@@ -356,6 +392,51 @@ export class SalesWorkspaceService {
       );
     }
 
+    const pipeline = await this.salesPipelineService.getPipeline(tenantId);
+    const changeSummaries: string[] = [];
+
+    if (dto.stageKey !== undefined && dto.stageKey !== beforeStageKey) {
+      changeSummaries.push(
+        `Stage → ${this.stageLabel(pipeline, dto.stageKey)}`,
+      );
+    }
+
+    if (dto.title !== undefined && dto.title.trim() !== beforeTitle) {
+      changeSummaries.push('Title updated');
+    }
+
+    if (
+      dto.assignedUserId !== undefined &&
+      dto.assignedUserId !== beforeAssigneeId
+    ) {
+      changeSummaries.push('Assignee updated');
+    }
+
+    if (dto.priority !== undefined && dto.priority !== beforePriority) {
+      changeSummaries.push(`Priority → ${dto.priority}`);
+    }
+
+    if (dto.vehicleId !== undefined) {
+      const nextVehicleId = dto.vehicleId ?? null;
+
+      if (nextVehicleId !== beforeVehicleId) {
+        changeSummaries.push(
+          nextVehicleId ? 'Vehicle linked' : 'Vehicle unlinked',
+        );
+      }
+    }
+
+    if (changeSummaries.length) {
+      await this.recordDealActivity(
+        tenantId,
+        deal.leadId,
+        deal.id,
+        changeSummaries.join(' · '),
+        SalesActivityType.Note,
+        true,
+      );
+    }
+
     return this.getWorkspace(tenantId);
   }
 
@@ -368,6 +449,7 @@ export class SalesWorkspaceService {
     this.salesPipelineService.assertStageKeyExists(pipeline, dto.stageKey);
 
     const deal = await this.getDealOrThrow(tenantId, dealId);
+    const previousStageKey = deal.stageKey;
     const targetDeals = await this.dealRepository.find({
       where: { tenantId, stageKey: dto.stageKey },
       order: { boardSortOrder: 'ASC' },
@@ -378,6 +460,22 @@ export class SalesWorkspaceService {
     deal.lastActivityAt = new Date();
     deal.inactiveDays = 0;
     await this.dealRepository.save(deal);
+
+    if (previousStageKey !== dto.stageKey) {
+      await this.recordDealActivity(
+        tenantId,
+        deal.leadId,
+        deal.id,
+        `Moved to ${this.stageLabel(pipeline, dto.stageKey)}`,
+        SalesActivityType.Note,
+        true,
+      );
+
+      const lead = await this.getLeadOrThrow(tenantId, deal.leadId);
+      lead.lastActivityAt = new Date();
+      await this.leadRepository.save(lead);
+    }
+
     return this.getWorkspace(tenantId);
   }
 
@@ -675,6 +773,46 @@ export class SalesWorkspaceService {
     }
 
     return lead;
+  }
+
+  private stageLabel(
+    pipeline: Awaited<ReturnType<SalesPipelineService['getPipeline']>>,
+    stageKey: string,
+  ) {
+    return (
+      pipeline.stages.find((stage) => stage.stageKey === stageKey)?.label ??
+      stageKey
+    );
+  }
+
+  private async recordDealActivity(
+    tenantId: number,
+    leadId: number,
+    dealId: number,
+    summary: string,
+    type: SalesActivityType,
+    automated: boolean,
+  ) {
+    const trimmed = summary.trim().slice(0, 500);
+
+    if (!trimmed) {
+      return;
+    }
+
+    const now = new Date();
+
+    await this.activityRepository.save(
+      this.activityRepository.create({
+        tenantId,
+        leadId,
+        dealId,
+        type,
+        summary: trimmed,
+        status: FollowUpStatus.Completed,
+        automated,
+        completedAt: now,
+      }),
+    );
   }
 
   private async getDealOrThrow(tenantId: number, dealId: number) {

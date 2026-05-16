@@ -22,6 +22,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { RequirePermissions } from '../access/permissions.decorator';
 import { PermissionsGuard } from '../access/permissions.guard';
 import { AssignSalesLeadDto } from './dto/assign-sales-lead.dto';
+import { CreateSalesDealActivityDto } from './dto/create-sales-deal-activity.dto';
 import { CreateSalesPipelineDealDto } from './dto/create-sales-pipeline-deal.dto';
 import { MoveSalesDealStageDto } from './dto/move-sales-deal-stage.dto';
 import { ReorderSalesDealsDto } from './dto/reorder-sales-deals.dto';
@@ -83,6 +84,23 @@ export class SalesController {
     @Body() dto: UpdateSalesPipelineDealDto,
   ) {
     return this.salesWorkspaceService.updatePipelineDeal(
+      Number(tenantId),
+      Number(dealId),
+      dto,
+    );
+  }
+
+  @ApiOkResponse({ type: SalesWorkspaceSnapshotDto })
+  @ApiOperation({ summary: 'Add a note or activity entry on a pipeline deal' })
+  @Post('deals/:dealId/activities')
+  @RequirePermissions('pipeline.manage', 'leads.manage')
+  @HttpCode(HttpStatus.OK)
+  addDealActivity(
+    @Param('tenantId') tenantId: number,
+    @Param('dealId') dealId: number,
+    @Body() dto: CreateSalesDealActivityDto,
+  ) {
+    return this.salesWorkspaceService.addDealActivity(
       Number(tenantId),
       Number(dealId),
       dto,
