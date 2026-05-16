@@ -29,6 +29,10 @@ import { SalesFollowUpRuleEntity } from './infrastructure/persistence/relational
 import { SalesLeadEntity } from './infrastructure/persistence/relational/entities/sales-lead.entity';
 import { SalesMessageEntity } from './infrastructure/persistence/relational/entities/sales-message.entity';
 import { SalesNotificationEntity } from './infrastructure/persistence/relational/entities/sales-notification.entity';
+import {
+  VehicleMediaEntity,
+  VehicleMediaKind,
+} from '../vehicles/infrastructure/persistence/relational/entities/vehicle-media.entity';
 
 @Injectable()
 export class SalesWorkspaceService {
@@ -49,6 +53,8 @@ export class SalesWorkspaceService {
     private readonly assignmentRuleRepository: Repository<SalesAssignmentRuleEntity>,
     @InjectRepository(SalesFollowUpRuleEntity)
     private readonly followUpRuleRepository: Repository<SalesFollowUpRuleEntity>,
+    @InjectRepository(VehicleMediaEntity)
+    private readonly vehicleMediaRepository: Repository<VehicleMediaEntity>,
     private readonly tenantsService: TenantsService,
     private readonly branchesService: BranchesService,
     private readonly accessService: AccessService,
@@ -102,6 +108,12 @@ export class SalesWorkspaceService {
     const conversationIdByLeadId = new Map(
       conversations.map((c) => [c.leadId, c.id]),
     );
+    const leadById = new Map(leads.map((lead) => [lead.id, lead]));
+    const vehicleImageById = await this.loadPrimaryVehicleImages(
+      leads
+        .map((lead) => lead.vehicleId)
+        .filter((vehicleId): vehicleId is number => Boolean(vehicleId)),
+    );
 
     const staff = this.buildStaff(tenantId, branches, memberships);
 
@@ -145,26 +157,35 @@ export class SalesWorkspaceService {
           ? String(conversationIdByLeadId.get(lead.id))
           : null,
       })),
-      deals: deals.map((deal) => ({
-        id: String(deal.id),
-        tenantId: String(deal.tenantId),
-        branchId: String(deal.branchId),
-        leadId: String(deal.leadId),
-        vehicleId: null,
-        conversationId: deal.conversationId
-          ? String(deal.conversationId)
-          : null,
-        stage: deal.stageKey,
-        title: deal.title,
-        valueKes: Number(deal.valueKes),
-        assignedStaffId: String(deal.assignedUserId),
-        assignmentReason: deal.assignmentReason ?? null,
-        lastActivityAt: deal.lastActivityAt.toISOString(),
-        createdAt: deal.createdAt.toISOString(),
-        inactiveDays: deal.inactiveDays,
-        boardSortOrder: deal.boardSortOrder,
-        slaDueAt: deal.slaDueAt?.toISOString() ?? null,
-      })),
+      deals: deals.map((deal) => {
+        const lead = leadById.get(deal.leadId);
+        const vehicleId = lead?.vehicleId ?? null;
+
+        return {
+          id: String(deal.id),
+          tenantId: String(deal.tenantId),
+          branchId: String(deal.branchId),
+          leadId: String(deal.leadId),
+          vehicleId: vehicleId ? String(vehicleId) : null,
+          conversationId: deal.conversationId
+            ? String(deal.conversationId)
+            : null,
+          stage: deal.stageKey,
+          title: deal.title,
+          customerName: lead?.customerName ?? null,
+          imageUrl:
+            deal.imageUrl ??
+            (vehicleId ? (vehicleImageById.get(vehicleId) ?? null) : null),
+          valueKes: Number(deal.valueKes),
+          assignedStaffId: String(deal.assignedUserId),
+          assignmentReason: deal.assignmentReason ?? null,
+          lastActivityAt: deal.lastActivityAt.toISOString(),
+          createdAt: deal.createdAt.toISOString(),
+          inactiveDays: deal.inactiveDays,
+          boardSortOrder: deal.boardSortOrder,
+          slaDueAt: deal.slaDueAt?.toISOString() ?? null,
+        };
+      }),
       conversations: conversations.map((conversation) => ({
         id: String(conversation.id),
         tenantId: String(conversation.tenantId),
@@ -360,6 +381,7 @@ export class SalesWorkspaceService {
         leadId: lead.id,
         stageKey: dto.stageKey,
         title: dto.title.trim(),
+        imageUrl: dto.imageUrl?.trim() || null,
         valueKes: String(dto.valueKes ?? 0),
         assignedUserId,
         assignmentReason: 'Added from pipeline board',
@@ -438,6 +460,35 @@ export class SalesWorkspaceService {
       { read: true },
     );
     return this.getWorkspace(tenantId);
+  }
+
+  private async loadPrimaryVehicleImages(vehicleIds: number[]) {
+    const uniqueIds = [...new Set(vehicleIds)];
+
+    if (!uniqueIds.length) {
+      return new Map<number, string>();
+    }
+
+    const media = await this.vehicleMediaRepository
+      .createQueryBuilder('media')
+      .where('media.kind = :kind', { kind: VehicleMediaKind.Image })
+      .andWhere('media.vehicleId IN (:...ids)', { ids: uniqueIds })
+      .orderBy('media.sortOrder', 'ASC')
+      .addOrderBy('media.id', 'ASC')
+      .getMany();
+
+    const imageByVehicleId = new Map<number, string>();
+
+    for (const item of media) {
+      const vehicleId = (item as VehicleMediaEntity & { vehicleId?: number })
+        .vehicleId;
+
+      if (vehicleId && !imageByVehicleId.has(vehicleId)) {
+        imageByVehicleId.set(vehicleId, item.url);
+      }
+    }
+
+    return imageByVehicleId;
   }
 
   private buildStaff(

@@ -68,6 +68,9 @@ export class SalesDealEntity extends EntityRelationalHelper {
   @Column({ type: String, length: 200 })
   title: string;
 
+  @Column({ type: String, length: 2048, nullable: true })
+  imageUrl?: string | null;
+
   @Column({ type: 'bigint', default: 0 })
   valueKes: string;
 

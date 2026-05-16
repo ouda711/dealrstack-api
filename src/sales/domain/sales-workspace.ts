@@ -135,6 +135,12 @@ export class SalesWorkspaceDealDto {
   @ApiProperty()
   title: string;
 
+  @ApiPropertyOptional()
+  customerName?: string | null;
+
+  @ApiPropertyOptional()
+  imageUrl?: string | null;
+
   @ApiProperty()
   valueKes: number;
 

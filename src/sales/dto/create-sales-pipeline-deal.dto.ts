@@ -44,6 +44,14 @@ export class CreateSalesPipelineDealDto {
   @Min(0)
   valueKes?: number;
 
+  @ApiPropertyOptional({
+    example: 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=600',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2048)
+  imageUrl?: string;
+
   @ApiPropertyOptional({ example: 1 })
   @IsOptional()
   @IsInt()

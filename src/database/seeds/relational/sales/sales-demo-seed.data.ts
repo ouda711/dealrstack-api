@@ -184,12 +184,35 @@ export const NAIROBI_DEMO_LEADS = [
   },
 ] as const;
 
+/** Stock imagery for demo pipeline cards (Unsplash). */
+export const NAIROBI_DEMO_DEAL_IMAGES = {
+  'deal-001':
+    'https://images.unsplash.com/photo-1519641471654-76ce5427a5df?auto=format&fit=crop&w=800&q=80',
+  'deal-002':
+    'https://images.unsplash.com/photo-1617814076367-93ee0ffeae23?auto=format&fit=crop&w=800&q=80',
+  'deal-003':
+    'https://images.unsplash.com/photo-1559416523-140ddc3d238c?auto=format&fit=crop&w=800&q=80',
+  'deal-004':
+    'https://images.unsplash.com/photo-1606664515524-ed2f786a0bd6?auto=format&fit=crop&w=800&q=80',
+  'deal-005':
+    'https://images.unsplash.com/photo-1618843479313-40f8afb841b4?auto=format&fit=crop&w=800&q=80',
+  'deal-006':
+    'https://images.unsplash.com/photo-1494976388531-d1058498cdd8?auto=format&fit=crop&w=800&q=80',
+  'deal-007':
+    'https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&w=800&q=80',
+  'deal-008':
+    'https://images.unsplash.com/photo-1542362567-b07e54358753?auto=format&fit=crop&w=800&q=80',
+  'deal-009':
+    'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=800&q=80',
+} as const;
+
 export const NAIROBI_DEMO_DEALS = [
   {
     demoKey: 'deal-001',
     leadDemoKey: 'lead-001',
     stageKey: 'negotiation',
     title: 'Brian Mwangi — Prado 2021',
+    imageUrl: NAIROBI_DEMO_DEAL_IMAGES['deal-001'],
     valueKes: 8_500_000,
     assigneeEmail: 'sales@dealrstack.com',
     assignmentReason: 'Round robin (SUV leads)',
@@ -204,6 +227,7 @@ export const NAIROBI_DEMO_DEALS = [
     leadDemoKey: 'lead-002',
     stageKey: 'test_drive',
     title: 'Faith Njeri — Mazda CX-5',
+    imageUrl: NAIROBI_DEMO_DEAL_IMAGES['deal-002'],
     valueKes: 3_200_000,
     assigneeEmail: 'brian@nairobi-auto-hub.co.ke',
     lastActivityAt: hours(1),
@@ -217,6 +241,7 @@ export const NAIROBI_DEMO_DEALS = [
     leadDemoKey: 'lead-003',
     stageKey: 'interested',
     title: 'Daniel Kipchoge — Fleet pickups',
+    imageUrl: NAIROBI_DEMO_DEAL_IMAGES['deal-003'],
     valueKes: 12_000_000,
     assigneeEmail: 'grace@nairobi-auto-hub.co.ke',
     lastActivityAt: hours(3),
@@ -228,6 +253,7 @@ export const NAIROBI_DEMO_DEALS = [
     leadDemoKey: 'lead-004',
     stageKey: 'contacted',
     title: 'Linet Akinyi — Forester',
+    imageUrl: NAIROBI_DEMO_DEAL_IMAGES['deal-004'],
     valueKes: 4_100_000,
     assigneeEmail: 'sales@dealrstack.com',
     lastActivityAt: days(1),
@@ -241,6 +267,7 @@ export const NAIROBI_DEMO_DEALS = [
     leadDemoKey: 'lead-005',
     stageKey: 'deposit_paid',
     title: 'Samuel Ochieng — C200',
+    imageUrl: NAIROBI_DEMO_DEAL_IMAGES['deal-005'],
     valueKes: 5_800_000,
     assigneeEmail: 'tenant-admin@dealrstack.com',
     lastActivityAt: mins(45),
@@ -253,6 +280,7 @@ export const NAIROBI_DEMO_DEALS = [
     leadDemoKey: 'lead-006',
     stageKey: 'new_lead',
     title: 'Wanjiru Maina — Honda Fit',
+    imageUrl: NAIROBI_DEMO_DEAL_IMAGES['deal-006'],
     valueKes: 1_800_000,
     assigneeEmail: 'sales@dealrstack.com',
     lastActivityAt: mins(15),
@@ -266,6 +294,7 @@ export const NAIROBI_DEMO_DEALS = [
     leadDemoKey: 'lead-007',
     stageKey: 'lost',
     title: 'Kevin Mutua — BMW X3',
+    imageUrl: NAIROBI_DEMO_DEAL_IMAGES['deal-007'],
     valueKes: 6_200_000,
     assigneeEmail: 'brian@nairobi-auto-hub.co.ke',
     lastActivityAt: days(3),
@@ -277,6 +306,7 @@ export const NAIROBI_DEMO_DEALS = [
     leadDemoKey: 'lead-008',
     stageKey: 'sold',
     title: 'Esther Wambui — Vitz',
+    imageUrl: NAIROBI_DEMO_DEAL_IMAGES['deal-008'],
     valueKes: 1_450_000,
     assigneeEmail: 'sales@dealrstack.com',
     lastActivityAt: days(2),
@@ -289,6 +319,7 @@ export const NAIROBI_DEMO_DEALS = [
     leadDemoKey: 'lead-010',
     stageKey: 'interested',
     title: 'Charles Ndungu — LC V8 lease',
+    imageUrl: NAIROBI_DEMO_DEAL_IMAGES['deal-009'],
     valueKes: 18_500_000,
     assigneeEmail: 'tenant-admin@dealrstack.com',
     lastActivityAt: mins(18),

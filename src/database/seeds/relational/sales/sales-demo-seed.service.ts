@@ -17,6 +17,7 @@ import {
   NAIROBI_DEMO_ASSIGNMENT_RULES,
   NAIROBI_DEMO_CONVERSATIONS,
   NAIROBI_DEMO_DEALS,
+  NAIROBI_DEMO_DEAL_IMAGES,
   NAIROBI_DEMO_FOLLOW_UP_RULES,
   NAIROBI_DEMO_LEADS,
   NAIROBI_DEMO_MESSAGES,
@@ -64,6 +65,7 @@ export class SalesDemoSeedService {
     });
 
     if (existingLead) {
+      await this.patchDemoDealImages(tenant.id);
       return;
     }
 
@@ -170,6 +172,8 @@ export class SalesDemoSeedService {
           demoKey: deal.demoKey,
           stageKey: deal.stageKey,
           title: deal.title,
+          imageUrl:
+            'imageUrl' in deal && deal.imageUrl ? String(deal.imageUrl) : null,
           valueKes: String(deal.valueKes),
           assignedUserId: assignedUser.id,
           assignmentReason:
@@ -271,6 +275,14 @@ export class SalesDemoSeedService {
           enabled: rule.enabled,
         }),
       );
+    }
+  }
+
+  private async patchDemoDealImages(tenantId: number) {
+    for (const [demoKey, imageUrl] of Object.entries(
+      NAIROBI_DEMO_DEAL_IMAGES,
+    )) {
+      await this.dealRepository.update({ tenantId, demoKey }, { imageUrl });
     }
   }
 }
