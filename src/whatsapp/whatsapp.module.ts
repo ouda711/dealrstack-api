@@ -11,6 +11,7 @@ import { WhatsAppIntegrationController } from './whatsapp-integration.controller
 import { WhatsAppIntegrationService } from './whatsapp-integration.service';
 import { WhatsAppOutboundService } from './whatsapp-outbound.service';
 import { WhatsAppWebhookController } from './whatsapp-webhook.controller';
+import { WhatsAppEmbeddedSignupService } from './whatsapp-embedded-signup.service';
 import { WhatsAppWebhookService } from './whatsapp-webhook.service';
 
 @Module({
@@ -28,6 +29,7 @@ import { WhatsAppWebhookService } from './whatsapp-webhook.service';
     WhatsAppInboundService,
     WhatsAppOutboundService,
     WhatsAppWebhookService,
+    WhatsAppEmbeddedSignupService,
   ],
   exports: [
     WhatsAppIntegrationService,

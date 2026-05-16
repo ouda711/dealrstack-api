@@ -60,6 +60,9 @@ FACEBOOK_APP_SECRET=
 WHATSAPP_API_VERSION=v21.0
 WHATSAPP_APP_SECRET=
 WHATSAPP_WEBHOOK_VERIFY_TOKEN=
+WHATSAPP_EMBEDDED_SIGNUP_CONFIG_ID=
+# Optional override; defaults to {FRONTEND_DOMAIN}/workspace/conversations/whatsapp-callback
+WHATSAPP_OAUTH_REDIRECT_URI=
 # Optional: wire demo tenant when running seeds (each real tenant connects via PUT /whatsapp-integration)
 WHATSAPP_DEMO_TENANT_SLUG=nairobi-auto-hub
 WHATSAPP_DEMO_PHONE_NUMBER_ID=

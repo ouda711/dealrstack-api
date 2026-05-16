@@ -18,6 +18,14 @@ class EnvironmentVariablesValidator {
 
   @IsOptional()
   @IsString()
+  WHATSAPP_EMBEDDED_SIGNUP_CONFIG_ID?: string;
+
+  @IsOptional()
+  @IsString()
+  WHATSAPP_OAUTH_REDIRECT_URI?: string;
+
+  @IsOptional()
+  @IsString()
   WHATSAPP_DEMO_TENANT_SLUG?: string;
 
   @IsOptional()
@@ -37,6 +45,10 @@ export default registerAs<WhatsAppConfig>('whatsapp', () => {
     appSecret: process.env.WHATSAPP_APP_SECRET?.trim() || undefined,
     webhookVerifyToken:
       process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN?.trim() || undefined,
+    embeddedSignupConfigId:
+      process.env.WHATSAPP_EMBEDDED_SIGNUP_CONFIG_ID?.trim() || undefined,
+    oauthRedirectUri:
+      process.env.WHATSAPP_OAUTH_REDIRECT_URI?.trim() || undefined,
     demoTenantSlug: process.env.WHATSAPP_DEMO_TENANT_SLUG?.trim() || undefined,
     demoPhoneNumberId:
       process.env.WHATSAPP_DEMO_PHONE_NUMBER_ID?.trim() || undefined,

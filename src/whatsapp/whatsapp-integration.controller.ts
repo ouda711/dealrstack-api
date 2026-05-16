@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Post,
   Put,
   UseGuards,
 } from '@nestjs/common';
@@ -20,7 +21,10 @@ import { AuthGuard } from '@nestjs/passport';
 import { RequirePermissions } from '../access/permissions.decorator';
 import { PermissionsGuard } from '../access/permissions.guard';
 import { TenantWhatsAppIntegrationDto } from './domain/tenant-whatsapp-integration.dto';
+import { CompleteWhatsAppEmbeddedSignupDto } from './dto/complete-whatsapp-embedded-signup.dto';
 import { UpsertTenantWhatsAppIntegrationDto } from './dto/upsert-tenant-whatsapp-integration.dto';
+import { WhatsAppEmbeddedSignupConfigDto } from './domain/whatsapp-embedded-signup-config.dto';
+import { WhatsAppEmbeddedSignupService } from './whatsapp-embedded-signup.service';
 import { WhatsAppIntegrationService } from './whatsapp-integration.service';
 
 @ApiBearerAuth()
@@ -33,7 +37,36 @@ import { WhatsAppIntegrationService } from './whatsapp-integration.service';
 export class WhatsAppIntegrationController {
   constructor(
     private readonly integrationService: WhatsAppIntegrationService,
+    private readonly embeddedSignupService: WhatsAppEmbeddedSignupService,
   ) {}
+
+  @ApiOkResponse({ type: WhatsAppEmbeddedSignupConfigDto })
+  @ApiOperation({
+    summary: 'Public Meta Embedded Signup config for the frontend SDK',
+  })
+  @Get('embedded-signup/config')
+  @RequirePermissions('team.manage')
+  @HttpCode(HttpStatus.OK)
+  @ApiParam({ name: 'tenantId', type: Number, required: true })
+  getEmbeddedSignupConfig() {
+    return this.embeddedSignupService.getSignupConfig();
+  }
+
+  @ApiOkResponse({ type: TenantWhatsAppIntegrationDto })
+  @ApiOperation({
+    summary:
+      'Complete Meta Embedded Signup and store tenant WhatsApp credentials',
+  })
+  @Post('embedded-signup/complete')
+  @RequirePermissions('team.manage')
+  @HttpCode(HttpStatus.OK)
+  @ApiParam({ name: 'tenantId', type: Number, required: true })
+  completeEmbeddedSignup(
+    @Param('tenantId') tenantId: number,
+    @Body() dto: CompleteWhatsAppEmbeddedSignupDto,
+  ) {
+    return this.embeddedSignupService.completeSignup(Number(tenantId), dto);
+  }
 
   @ApiOkResponse({ type: TenantWhatsAppIntegrationDto })
   @ApiOperation({
