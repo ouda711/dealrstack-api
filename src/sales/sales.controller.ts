@@ -26,6 +26,7 @@ import { CreateSalesDealActivityDto } from './dto/create-sales-deal-activity.dto
 import { CreateSalesPipelineDealDto } from './dto/create-sales-pipeline-deal.dto';
 import { MoveSalesDealStageDto } from './dto/move-sales-deal-stage.dto';
 import { ReorderSalesDealsDto } from './dto/reorder-sales-deals.dto';
+import { SendSalesConversationMessageDto } from './dto/send-sales-conversation-message.dto';
 import { UpdateSalesPipelineDealDto } from './dto/update-sales-pipeline-deal.dto';
 import { SalesWorkspaceSnapshotDto } from './domain/sales-workspace';
 import { SalesWorkspaceService } from './sales-workspace.service';
@@ -134,6 +135,23 @@ export class SalesController {
   ) {
     return this.salesWorkspaceService.reorderDealsInStage(
       Number(tenantId),
+      dto,
+    );
+  }
+
+  @ApiOkResponse({ type: SalesWorkspaceSnapshotDto })
+  @ApiOperation({ summary: 'Send an outbound message in a sales conversation' })
+  @Post('conversations/:conversationId/messages')
+  @RequirePermissions('conversations.manage', 'leads.manage')
+  @HttpCode(HttpStatus.OK)
+  sendConversationMessage(
+    @Param('tenantId') tenantId: number,
+    @Param('conversationId') conversationId: number,
+    @Body() dto: SendSalesConversationMessageDto,
+  ) {
+    return this.salesWorkspaceService.sendConversationMessage(
+      Number(tenantId),
+      Number(conversationId),
       dto,
     );
   }

@@ -15,6 +15,7 @@ import {
   LeadPriority,
   LeadSource,
   LeadStatus,
+  MessageDirection,
   NotificationKind,
   SalesActivityType,
 } from './domain/sales.enums';
@@ -23,6 +24,7 @@ import { CreateSalesPipelineDealDto } from './dto/create-sales-pipeline-deal.dto
 import { MoveSalesDealStageDto } from './dto/move-sales-deal-stage.dto';
 import { ReorderSalesDealsDto } from './dto/reorder-sales-deals.dto';
 import { CreateSalesDealActivityDto } from './dto/create-sales-deal-activity.dto';
+import { SendSalesConversationMessageDto } from './dto/send-sales-conversation-message.dto';
 import { UpdateSalesPipelineDealDto } from './dto/update-sales-pipeline-deal.dto';
 import { SalesWorkspaceSnapshotDto } from './domain/sales-workspace';
 import { SalesActivityEntity } from './infrastructure/persistence/relational/entities/sales-activity.entity';
@@ -258,6 +260,62 @@ export class SalesWorkspaceService {
         enabled: rule.enabled,
       })),
     };
+  }
+
+  async sendConversationMessage(
+    tenantId: number,
+    conversationId: number,
+    dto: SendSalesConversationMessageDto,
+  ) {
+    const conversation = await this.conversationRepository.findOne({
+      where: { id: conversationId, tenantId },
+    });
+
+    if (!conversation) {
+      throw new NotFoundException({
+        status: HttpStatus.NOT_FOUND,
+        error: 'conversationNotFound',
+      });
+    }
+
+    const body = dto.body.trim();
+
+    if (!body) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        error: 'messageBodyRequired',
+      });
+    }
+
+    const now = new Date();
+    const preview = body.length > 500 ? `${body.slice(0, 497)}...` : body;
+
+    await this.messageRepository.save(
+      this.messageRepository.create({
+        conversationId: conversation.id,
+        direction: MessageDirection.Outbound,
+        body,
+        sentAt: now,
+        isTemplate: dto.isTemplate ?? false,
+      }),
+    );
+
+    conversation.lastMessagePreview = preview;
+    conversation.lastMessageAt = now;
+    conversation.unreadCount = 0;
+    await this.conversationRepository.save(conversation);
+
+    const lead = await this.getLeadOrThrow(tenantId, conversation.leadId);
+    lead.lastActivityAt = now;
+    lead.unread = false;
+    await this.leadRepository.save(lead);
+
+    await this.dealRepository.update(
+      { tenantId, leadId: lead.id },
+      { lastActivityAt: now, inactiveDays: 0 },
+    );
+
+    return this.getWorkspace(tenantId);
   }
 
   async addDealActivity(
