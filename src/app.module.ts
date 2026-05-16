@@ -36,6 +36,7 @@ import { AuditTrailModule } from './audit-trail/audit-trail.module';
 import { VehiclesModule } from './vehicles/vehicles.module';
 import { FLYER_STREAM_THROTTLE } from './vehicles/flyer-stream-throttle.config';
 import { SettingsModule } from './settings/settings.module';
+import { SalesPipelineModule } from './sales-pipeline/sales-pipeline.module';
 
 // <database-block>
 const infrastructureDatabaseModule = (databaseConfig() as DatabaseConfig)
@@ -115,6 +116,7 @@ const infrastructureDatabaseModule = (databaseConfig() as DatabaseConfig)
     AuditTrailModule,
     VehiclesModule,
     SettingsModule,
+    SalesPipelineModule,
   ],
 })
 export class AppModule {}

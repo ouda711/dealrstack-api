@@ -13,6 +13,7 @@ import { TenantSeedModule } from './tenant/tenant-seed.module';
 import { AccessSeedModule } from './access/access-seed.module';
 import { BranchSeedModule } from './branch/branch-seed.module';
 import { VehicleCatalogSeedModule } from './vehicle-catalog/vehicle-catalog-seed.module';
+import { SalesPipelineSeedModule } from './sales-pipeline/sales-pipeline-seed.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { VehicleCatalogSeedModule } from './vehicle-catalog/vehicle-catalog-seed
     TenantSeedModule,
     AccessSeedModule,
     BranchSeedModule,
+    SalesPipelineSeedModule,
     VehicleCatalogSeedModule,
     ConfigModule.forRoot({
       isGlobal: true,
