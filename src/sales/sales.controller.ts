@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -22,6 +23,8 @@ import { AuthGuard } from '@nestjs/passport';
 import { RequirePermissions } from '../access/permissions.decorator';
 import { PermissionsGuard } from '../access/permissions.guard';
 import { AssignSalesLeadDto } from './dto/assign-sales-lead.dto';
+import { CreateSalesAssignmentRuleDto } from './dto/create-sales-assignment-rule.dto';
+import { UpdateSalesAssignmentRuleDto } from './dto/update-sales-assignment-rule.dto';
 import { CreateSalesDealActivityDto } from './dto/create-sales-deal-activity.dto';
 import { CreateSalesPipelineDealDto } from './dto/create-sales-pipeline-deal.dto';
 import { MoveSalesDealStageDto } from './dto/move-sales-deal-stage.dto';
@@ -153,6 +156,53 @@ export class SalesController {
       Number(tenantId),
       Number(conversationId),
       dto,
+    );
+  }
+
+  @ApiOkResponse({ type: SalesWorkspaceSnapshotDto })
+  @ApiOperation({ summary: 'Create a lead assignment rule' })
+  @Post('assignment-rules')
+  @RequirePermissions('assignments.manage')
+  @HttpCode(HttpStatus.OK)
+  createAssignmentRule(
+    @Param('tenantId') tenantId: number,
+    @Body() dto: CreateSalesAssignmentRuleDto,
+  ) {
+    return this.salesWorkspaceService.createAssignmentRule(
+      Number(tenantId),
+      dto,
+    );
+  }
+
+  @ApiOkResponse({ type: SalesWorkspaceSnapshotDto })
+  @ApiOperation({ summary: 'Update a lead assignment rule' })
+  @Patch('assignment-rules/:ruleId')
+  @RequirePermissions('assignments.manage')
+  @HttpCode(HttpStatus.OK)
+  updateAssignmentRule(
+    @Param('tenantId') tenantId: number,
+    @Param('ruleId') ruleId: number,
+    @Body() dto: UpdateSalesAssignmentRuleDto,
+  ) {
+    return this.salesWorkspaceService.updateAssignmentRule(
+      Number(tenantId),
+      Number(ruleId),
+      dto,
+    );
+  }
+
+  @ApiOkResponse({ type: SalesWorkspaceSnapshotDto })
+  @ApiOperation({ summary: 'Delete a lead assignment rule' })
+  @Delete('assignment-rules/:ruleId')
+  @RequirePermissions('assignments.manage')
+  @HttpCode(HttpStatus.OK)
+  deleteAssignmentRule(
+    @Param('tenantId') tenantId: number,
+    @Param('ruleId') ruleId: number,
+  ) {
+    return this.salesWorkspaceService.deleteAssignmentRule(
+      Number(tenantId),
+      Number(ruleId),
     );
   }
 

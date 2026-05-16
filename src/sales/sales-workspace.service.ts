@@ -20,6 +20,8 @@ import {
   SalesActivityType,
 } from './domain/sales.enums';
 import { AssignSalesLeadDto } from './dto/assign-sales-lead.dto';
+import { CreateSalesAssignmentRuleDto } from './dto/create-sales-assignment-rule.dto';
+import { UpdateSalesAssignmentRuleDto } from './dto/update-sales-assignment-rule.dto';
 import { CreateSalesPipelineDealDto } from './dto/create-sales-pipeline-deal.dto';
 import { MoveSalesDealStageDto } from './dto/move-sales-deal-stage.dto';
 import { ReorderSalesDealsDto } from './dto/reorder-sales-deals.dto';
@@ -669,6 +671,72 @@ export class SalesWorkspaceService {
     return this.getWorkspace(tenantId);
   }
 
+  async createAssignmentRule(
+    tenantId: number,
+    dto: CreateSalesAssignmentRuleDto,
+  ) {
+    await this.getTenantOrThrow(tenantId);
+
+    const existing = await this.assignmentRuleRepository.find({
+      where: { tenantId },
+      order: { priority: 'DESC' },
+      take: 1,
+    });
+
+    const priority =
+      dto.priority ?? (existing[0] ? existing[0].priority + 1 : 1);
+
+    await this.assignmentRuleRepository.save(
+      this.assignmentRuleRepository.create({
+        tenantId,
+        type: dto.type,
+        label: dto.label.trim(),
+        description: dto.description.trim(),
+        enabled: dto.enabled ?? true,
+        priority,
+      }),
+    );
+
+    return this.getWorkspace(tenantId);
+  }
+
+  async updateAssignmentRule(
+    tenantId: number,
+    ruleId: number,
+    dto: UpdateSalesAssignmentRuleDto,
+  ) {
+    const rule = await this.getAssignmentRuleOrThrow(tenantId, ruleId);
+
+    if (dto.type !== undefined) {
+      rule.type = dto.type;
+    }
+
+    if (dto.label !== undefined) {
+      rule.label = dto.label.trim();
+    }
+
+    if (dto.description !== undefined) {
+      rule.description = dto.description.trim();
+    }
+
+    if (dto.enabled !== undefined) {
+      rule.enabled = dto.enabled;
+    }
+
+    if (dto.priority !== undefined) {
+      rule.priority = dto.priority;
+    }
+
+    await this.assignmentRuleRepository.save(rule);
+    return this.getWorkspace(tenantId);
+  }
+
+  async deleteAssignmentRule(tenantId: number, ruleId: number) {
+    const rule = await this.getAssignmentRuleOrThrow(tenantId, ruleId);
+    await this.assignmentRuleRepository.softRemove(rule);
+    return this.getWorkspace(tenantId);
+  }
+
   async assignLead(tenantId: number, leadId: number, dto: AssignSalesLeadDto) {
     const lead = await this.getLeadOrThrow(tenantId, leadId);
     lead.assignedUserId = dto.assignedUserId;
@@ -871,6 +939,21 @@ export class SalesWorkspaceService {
         completedAt: now,
       }),
     );
+  }
+
+  private async getAssignmentRuleOrThrow(tenantId: number, ruleId: number) {
+    const rule = await this.assignmentRuleRepository.findOne({
+      where: { id: ruleId, tenantId },
+    });
+
+    if (!rule) {
+      throw new NotFoundException({
+        status: HttpStatus.NOT_FOUND,
+        error: 'assignmentRuleNotFound',
+      });
+    }
+
+    return rule;
   }
 
   private async getDealOrThrow(tenantId: number, dealId: number) {
