@@ -149,7 +149,7 @@ export class SalesWorkspaceService {
       leads: leads.map((lead) => ({
         id: lead.id,
         source: lead.source,
-        assignedUserId: lead.assignedUserId,
+        assignedUserId: lead.assignedUserId ?? null,
         createdAt: lead.createdAt,
       })),
       deals: deals.map((deal) => ({
@@ -474,7 +474,7 @@ export class SalesWorkspaceService {
         lead.vehicleId = null;
       } else {
         const vehicle = await this.vehicleRepository.findOne({
-          where: { id: dto.vehicleId, tenantId },
+          where: { id: dto.vehicleId, tenant: { id: tenantId } },
         });
 
         if (!vehicle) {
