@@ -40,6 +40,10 @@ import { SalesFollowUpRuleEntity } from './infrastructure/persistence/relational
 import { SalesLeadEntity } from './infrastructure/persistence/relational/entities/sales-lead.entity';
 import { SalesMessageEntity } from './infrastructure/persistence/relational/entities/sales-message.entity';
 import { SalesNotificationEntity } from './infrastructure/persistence/relational/entities/sales-notification.entity';
+import {
+  computeSalesWorkspaceDashboardMetrics,
+  INVENTORY_AGING_STATUSES,
+} from './compute-sales-workspace-dashboard-metrics';
 import { VehicleEntity } from '../vehicles/infrastructure/persistence/relational/entities/vehicle.entity';
 import {
   VehicleMediaEntity,
@@ -130,8 +134,52 @@ export class SalesWorkspaceService {
     );
 
     const staff = this.buildStaff(tenantId, branches, memberships);
+    const inventoryVehicles = await this.vehicleRepository.find({
+      where: {
+        tenant: { id: tenantId },
+        status: In(INVENTORY_AGING_STATUSES),
+        isActive: true,
+      },
+      select: { id: true, createdAt: true },
+    });
+    const overdueFollowUpsCount = activities.filter(
+      (activity) => activity.status === FollowUpStatus.Overdue,
+    ).length;
+    const metrics = computeSalesWorkspaceDashboardMetrics({
+      leads: leads.map((lead) => ({
+        id: lead.id,
+        source: lead.source,
+        assignedUserId: lead.assignedUserId,
+        createdAt: lead.createdAt,
+      })),
+      deals: deals.map((deal) => ({
+        stageKey: deal.stageKey,
+        valueKes: Number(deal.valueKes),
+        assignedUserId: deal.assignedUserId,
+      })),
+      staff: staff.map((member) => ({
+        userId: Number(member.id),
+        name: member.name || member.email,
+      })),
+      messages: messages.map((message) => ({
+        conversationId: message.conversationId,
+        direction: message.direction,
+        sentAt: message.sentAt,
+      })),
+      conversationIdByLeadId: new Map(
+        conversations.map((conversation) => [
+          conversation.leadId,
+          conversation.id,
+        ]),
+      ),
+      inventoryVehicles: inventoryVehicles.map((vehicle) => ({
+        createdAt: vehicle.createdAt,
+      })),
+      overdueFollowUpsCount,
+    });
 
     return {
+      metrics,
       tenants: [
         {
           id: String(tenant.id),

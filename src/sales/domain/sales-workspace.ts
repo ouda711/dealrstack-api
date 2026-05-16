@@ -334,7 +334,63 @@ export class SalesWorkspaceFollowUpRuleDto {
   enabled: boolean;
 }
 
+export class SalesWorkspaceDashboardMetricsDto {
+  @ApiProperty()
+  avgResponseMinutes: number;
+
+  @ApiProperty({
+    type: 'array',
+    items: {
+      type: 'object',
+      properties: { source: { type: 'string' }, count: { type: 'number' } },
+    },
+  })
+  leadsBySource: { source: string; count: number }[];
+
+  @ApiProperty()
+  conversionRatePct: number;
+
+  @ApiProperty()
+  openPipelineValueKes: number;
+
+  @ApiProperty()
+  wonDealsCount: number;
+
+  @ApiProperty()
+  lostDealsCount: number;
+
+  @ApiProperty()
+  inventoryAgingDaysAvg: number;
+
+  @ApiProperty()
+  overdueFollowUpsCount: number;
+
+  @ApiProperty({
+    type: 'array',
+    items: {
+      type: 'object',
+      properties: {
+        staffId: { type: 'string' },
+        name: { type: 'string' },
+        leadsAssigned: { type: 'number' },
+        dealsWon: { type: 'number' },
+        avgResponseMinutes: { type: 'number' },
+      },
+    },
+  })
+  staffPerformance: {
+    staffId: string;
+    name: string;
+    leadsAssigned: number;
+    dealsWon: number;
+    avgResponseMinutes: number;
+  }[];
+}
+
 export class SalesWorkspaceSnapshotDto {
+  @ApiProperty({ type: SalesWorkspaceDashboardMetricsDto })
+  metrics: SalesWorkspaceDashboardMetricsDto;
+
   @ApiProperty({ type: [SalesWorkspaceTenantDto] })
   tenants: SalesWorkspaceTenantDto[];
 
