@@ -6,6 +6,7 @@ import { SalesPipelineModule } from '../sales-pipeline/sales-pipeline.module';
 import { TenantsModule } from '../tenants/tenants.module';
 import { RelationalSalesPersistenceModule } from './infrastructure/persistence/relational/relational-persistence.module';
 import { SalesController } from './sales.controller';
+import { SalesAssignmentModule } from './sales-assignment.module';
 import { SalesFollowUpAutomationService } from './sales-follow-up-automation.service';
 import { SalesWorkspaceService } from './sales-workspace.service';
 import { WhatsAppModule } from '../whatsapp/whatsapp.module';
@@ -17,6 +18,7 @@ import { WhatsAppModule } from '../whatsapp/whatsapp.module';
     TenantsModule,
     BranchesModule,
     AccessModule,
+    SalesAssignmentModule,
     WhatsAppModule,
   ],
   controllers: [SalesController],

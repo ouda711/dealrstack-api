@@ -44,6 +44,7 @@ import {
   computeSalesWorkspaceDashboardMetrics,
   INVENTORY_AGING_STATUSES,
 } from './compute-sales-workspace-dashboard-metrics';
+import { SalesAssignmentEngineService } from './sales-assignment-engine.service';
 import { SalesFollowUpAutomationService } from './sales-follow-up-automation.service';
 import { WhatsAppIntegrationService } from '../whatsapp/whatsapp-integration.service';
 import { WhatsAppOutboundService } from '../whatsapp/whatsapp-outbound.service';
@@ -81,6 +82,7 @@ export class SalesWorkspaceService {
     private readonly accessService: AccessService,
     private readonly salesPipelineService: SalesPipelineService,
     private readonly followUpAutomationService: SalesFollowUpAutomationService,
+    private readonly assignmentEngineService: SalesAssignmentEngineService,
     private readonly whatsAppIntegrationService: WhatsAppIntegrationService,
     private readonly whatsAppOutboundService: WhatsAppOutboundService,
   ) {}
@@ -130,6 +132,12 @@ export class SalesWorkspaceService {
       messages,
     });
 
+    await this.assignmentEngineService.evaluateUnassignedLeads(tenantId);
+
+    const leadsAfterAssignment = await this.leadRepository.find({
+      where: { tenantId },
+      order: { createdAt: 'DESC' },
+    });
     const activitiesAfterAutomation = await this.activityRepository.find({
       where: { tenantId },
       order: { createdAt: 'DESC' },
@@ -144,9 +152,11 @@ export class SalesWorkspaceService {
     const conversationIdByLeadId = new Map(
       conversations.map((c) => [c.leadId, c.id]),
     );
-    const leadById = new Map(leads.map((lead) => [lead.id, lead]));
+    const leadById = new Map(
+      leadsAfterAssignment.map((lead) => [lead.id, lead]),
+    );
     const vehicleImageById = await this.loadPrimaryVehicleImages(
-      leads
+      leadsAfterAssignment
         .map((lead) => lead.vehicleId)
         .filter((vehicleId): vehicleId is number => Boolean(vehicleId)),
     );
@@ -166,7 +176,7 @@ export class SalesWorkspaceService {
     const whatsappIntegration =
       await this.whatsAppIntegrationService.getByTenantId(tenantId);
     const metrics = computeSalesWorkspaceDashboardMetrics({
-      leads: leads.map((lead) => ({
+      leads: leadsAfterAssignment.map((lead) => ({
         id: lead.id,
         source: lead.source,
         assignedUserId: lead.assignedUserId ?? null,
@@ -223,7 +233,7 @@ export class SalesWorkspaceService {
         whatsappNumber: branch.phone ?? null,
       })),
       staff,
-      leads: leads.map((lead) => ({
+      leads: leadsAfterAssignment.map((lead) => ({
         id: String(lead.id),
         tenantId: String(lead.tenantId),
         branchId: String(lead.branchId),
@@ -686,8 +696,38 @@ export class SalesWorkspaceService {
 
     const memberships =
       await this.accessService.findTenantMemberships(tenantId);
+    const now = new Date();
+    const slaDueAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const interestSummary = dto.interestSummary?.trim() || dto.title.trim();
+    const explicitAssigneeId = dto.assignedUserId ?? null;
+
+    let lead = await this.leadRepository.save(
+      this.leadRepository.create({
+        tenantId,
+        branchId: branch.id,
+        source: LeadSource.Manual,
+        status: LeadStatus.New,
+        priority: LeadPriority.Normal,
+        customerName: dto.customerName.trim(),
+        customerPhone: dto.customerPhone.trim(),
+        interestSummary,
+        assignedUserId: explicitAssigneeId,
+        assignmentReason: explicitAssigneeId
+          ? 'Added from pipeline board'
+          : null,
+        unread: true,
+        slaDueAt,
+        lastActivityAt: now,
+      }),
+    );
+
+    if (!explicitAssigneeId) {
+      await this.assignmentEngineService.applyToLead(lead);
+      lead = await this.leadRepository.findOneByOrFail({ id: lead.id });
+    }
+
     const assignedUserId =
-      dto.assignedUserId ??
+      lead.assignedUserId ??
       requestingUserId ??
       memberships.find((membership) => membership.user?.id)?.user?.id;
 
@@ -698,27 +738,15 @@ export class SalesWorkspaceService {
       });
     }
 
-    const now = new Date();
-    const slaDueAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-    const interestSummary = dto.interestSummary?.trim() || dto.title.trim();
+    if (!lead.assignedUserId) {
+      lead.assignedUserId = assignedUserId;
+      lead.assignmentReason = 'Added from pipeline board';
+      lead.lastActivityAt = now;
+      await this.leadRepository.save(lead);
+    }
 
-    const lead = await this.leadRepository.save(
-      this.leadRepository.create({
-        tenantId,
-        branchId: branch.id,
-        source: LeadSource.Manual,
-        status: LeadStatus.New,
-        priority: LeadPriority.Normal,
-        customerName: dto.customerName.trim(),
-        customerPhone: dto.customerPhone.trim(),
-        interestSummary,
-        assignedUserId,
-        assignmentReason: 'Added from pipeline board',
-        unread: true,
-        slaDueAt,
-        lastActivityAt: now,
-      }),
-    );
+    const assignmentReason =
+      lead.assignmentReason ?? 'Added from pipeline board';
 
     const stageDeals = await this.dealRepository.find({
       where: { tenantId, stageKey: dto.stageKey },
@@ -734,7 +762,7 @@ export class SalesWorkspaceService {
         imageUrl: dto.imageUrl?.trim() || null,
         valueKes: String(dto.valueKes ?? 0),
         assignedUserId,
-        assignmentReason: 'Added from pipeline board',
+        assignmentReason,
         lastActivityAt: now,
         inactiveDays: 0,
         boardSortOrder: stageDeals.length,

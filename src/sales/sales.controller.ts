@@ -238,6 +238,20 @@ export class SalesController {
   }
 
   @ApiOkResponse({ type: SalesWorkspaceSnapshotDto })
+  @ApiOperation({
+    summary: 'Evaluate enabled assignment rules for unassigned leads',
+    description:
+      'Applies active assignment rules to leads without an owner and syncs related deals and conversations.',
+  })
+  @Post('assignment-rules/evaluate')
+  @RequirePermissions('assignments.manage', 'leads.manage')
+  @HttpCode(HttpStatus.OK)
+  @ApiParam({ name: 'tenantId', type: Number, required: true })
+  evaluateAssignmentRules(@Param('tenantId') tenantId: number) {
+    return this.salesWorkspaceService.getWorkspace(Number(tenantId));
+  }
+
+  @ApiOkResponse({ type: SalesWorkspaceSnapshotDto })
   @ApiOperation({ summary: 'Create a lead assignment rule' })
   @Post('assignment-rules')
   @RequirePermissions('assignments.manage')

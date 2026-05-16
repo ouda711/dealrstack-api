@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AccessService } from '../access/access.service';
 import { BranchesService } from '../branches/branches.service';
+import { SalesAssignmentEngineService } from '../sales/sales-assignment-engine.service';
 import {
   LeadPriority,
   LeadSource,
@@ -42,6 +43,7 @@ export class WhatsAppInboundService {
     private readonly notificationRepository: Repository<SalesNotificationEntity>,
     private readonly branchesService: BranchesService,
     private readonly accessService: AccessService,
+    private readonly assignmentEngineService: SalesAssignmentEngineService,
   ) {}
 
   async processWebhookPayload(payload: unknown): Promise<void> {
@@ -200,10 +202,9 @@ export class WhatsAppInboundService {
       );
     }
 
-    const assigneeId = await this.resolveDefaultAssigneeId(input.tenantId);
     const slaDueAt = new Date(input.now.getTime() + 15 * 60_000);
 
-    return this.leadRepository.save(
+    const lead = await this.leadRepository.save(
       this.leadRepository.create({
         tenantId: input.tenantId,
         branchId: branch.id,
@@ -213,13 +214,17 @@ export class WhatsAppInboundService {
         customerName: input.customerName,
         customerPhone: input.customerPhone,
         interestSummary: 'Inbound WhatsApp message',
-        assignedUserId: assigneeId,
-        assignmentReason: 'WhatsApp inbound',
+        assignedUserId: null,
+        assignmentReason: null,
         unread: true,
         slaDueAt,
         lastActivityAt: input.now,
       }),
     );
+
+    await this.assignmentEngineService.applyToLead(lead);
+
+    return this.leadRepository.findOneByOrFail({ id: lead.id });
   }
 
   private async findOrCreateConversation(input: {
@@ -238,7 +243,7 @@ export class WhatsAppInboundService {
 
     const assigneeId =
       input.lead.assignedUserId ??
-      (await this.resolveDefaultAssigneeId(input.tenantId));
+      (await this.resolveConversationAssigneeId(input.tenantId));
 
     return this.conversationRepository.save(
       this.conversationRepository.create({
@@ -258,7 +263,9 @@ export class WhatsAppInboundService {
     );
   }
 
-  private async resolveDefaultAssigneeId(tenantId: number): Promise<number> {
+  private async resolveConversationAssigneeId(
+    tenantId: number,
+  ): Promise<number> {
     const memberships =
       await this.accessService.findTenantMemberships(tenantId);
     const userId = memberships.find((membership) => membership.user?.id)?.user
@@ -266,7 +273,7 @@ export class WhatsAppInboundService {
 
     if (!userId) {
       throw new Error(
-        `Tenant ${tenantId} has no staff for WhatsApp assignment`,
+        `Tenant ${tenantId} has no staff for WhatsApp conversation`,
       );
     }
 
