@@ -119,6 +119,16 @@ export class SalesPipelineRelationalRepository implements SalesPipelineRepositor
     );
   }
 
+  async createStage(
+    input: CreateSalesPipelineStageInput,
+  ): Promise<SalesPipelineStage> {
+    const entity = await this.stageRepository.save(
+      this.stageRepository.create(input),
+    );
+
+    return SalesPipelineMapper.stageToDomain(entity);
+  }
+
   async findStageById(
     tenantId: number,
     stageId: number,

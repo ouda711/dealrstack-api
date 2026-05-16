@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Param,
   Patch,
+  Post,
   Put,
   Query,
   UseGuards,
@@ -23,6 +24,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { RequirePermissions } from '../access/permissions.decorator';
 import { PermissionsGuard } from '../access/permissions.guard';
 import { SalesPipeline } from './domain/sales-pipeline';
+import { CreateSalesPipelineStageDto } from './dto/create-sales-pipeline-stage.dto';
 import { ReorderSalesPipelineStagesDto } from './dto/reorder-sales-pipeline-stages.dto';
 import { UpdateSalesPipelineStageDto } from './dto/update-sales-pipeline-stage.dto';
 import { SalesPipelineService } from './sales-pipeline.service';
@@ -60,6 +62,25 @@ export class SalesPipelineController {
   ): Promise<SalesPipeline> {
     return this.salesPipelineService.getPipeline(
       Number(tenantId),
+      branchId ? Number(branchId) : undefined,
+    );
+  }
+
+  @ApiOkResponse({ type: SalesPipeline })
+  @ApiOperation({ summary: 'Add a pipeline stage' })
+  @Post('stages')
+  @RequirePermissions('pipeline.manage', 'settings.manage')
+  @HttpCode(HttpStatus.OK)
+  @ApiParam({ name: 'tenantId', type: Number, required: true })
+  @ApiQuery({ name: 'branchId', type: Number, required: false })
+  createStage(
+    @Param('tenantId') tenantId: number,
+    @Body() dto: CreateSalesPipelineStageDto,
+    @Query('branchId') branchId?: string,
+  ): Promise<SalesPipeline> {
+    return this.salesPipelineService.createStage(
+      Number(tenantId),
+      dto,
       branchId ? Number(branchId) : undefined,
     );
   }

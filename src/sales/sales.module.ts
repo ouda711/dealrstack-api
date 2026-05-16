@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AccessModule } from '../access/access.module';
 import { PermissionsGuard } from '../access/permissions.guard';
 import { BranchesModule } from '../branches/branches.module';
+import { SalesPipelineModule } from '../sales-pipeline/sales-pipeline.module';
 import { TenantsModule } from '../tenants/tenants.module';
 import { RelationalSalesPersistenceModule } from './infrastructure/persistence/relational/relational-persistence.module';
 import { SalesController } from './sales.controller';
@@ -10,6 +11,7 @@ import { SalesWorkspaceService } from './sales-workspace.service';
 @Module({
   imports: [
     RelationalSalesPersistenceModule,
+    SalesPipelineModule,
     TenantsModule,
     BranchesModule,
     AccessModule,

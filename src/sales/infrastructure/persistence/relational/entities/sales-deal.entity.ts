@@ -88,6 +88,9 @@ export class SalesDealEntity extends EntityRelationalHelper {
   @Column({ type: 'int', default: 0 })
   inactiveDays: number;
 
+  @Column({ type: 'int', default: 0 })
+  boardSortOrder: number;
+
   @Column({ type: 'timestamptz', nullable: true })
   slaDueAt?: Date | null;
 

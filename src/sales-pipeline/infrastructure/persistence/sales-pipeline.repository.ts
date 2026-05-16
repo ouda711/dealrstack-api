@@ -36,6 +36,10 @@ export abstract class SalesPipelineRepository {
 
   abstract createStages(stages: CreateSalesPipelineStageInput[]): Promise<void>;
 
+  abstract createStage(
+    input: CreateSalesPipelineStageInput,
+  ): Promise<SalesPipelineStage>;
+
   abstract findStageById(
     tenantId: number,
     stageId: number,

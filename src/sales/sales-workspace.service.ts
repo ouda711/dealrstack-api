@@ -1,11 +1,18 @@
-import { HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  HttpStatus,
+  Injectable,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { AccessService } from '../access/access.service';
 import { BranchesService } from '../branches/branches.service';
+import { SalesPipelineService } from '../sales-pipeline/sales-pipeline.service';
 import { TenantsService } from '../tenants/tenants.service';
 import { AssignSalesLeadDto } from './dto/assign-sales-lead.dto';
 import { MoveSalesDealStageDto } from './dto/move-sales-deal-stage.dto';
+import { ReorderSalesDealsDto } from './dto/reorder-sales-deals.dto';
 import { SalesWorkspaceSnapshotDto } from './domain/sales-workspace';
 import { SalesActivityEntity } from './infrastructure/persistence/relational/entities/sales-activity.entity';
 import { SalesAssignmentRuleEntity } from './infrastructure/persistence/relational/entities/sales-assignment-rule.entity';
@@ -38,6 +45,7 @@ export class SalesWorkspaceService {
     private readonly tenantsService: TenantsService,
     private readonly branchesService: BranchesService,
     private readonly accessService: AccessService,
+    private readonly salesPipelineService: SalesPipelineService,
   ) {}
 
   async getWorkspace(tenantId: number): Promise<SalesWorkspaceSnapshotDto> {
@@ -52,7 +60,7 @@ export class SalesWorkspaceService {
     });
     const deals = await this.dealRepository.find({
       where: { tenantId },
-      order: { lastActivityAt: 'DESC' },
+      order: { stageKey: 'ASC', boardSortOrder: 'ASC', lastActivityAt: 'DESC' },
     });
     const conversations = await this.conversationRepository.find({
       where: { tenantId },
@@ -147,6 +155,7 @@ export class SalesWorkspaceService {
         lastActivityAt: deal.lastActivityAt.toISOString(),
         createdAt: deal.createdAt.toISOString(),
         inactiveDays: deal.inactiveDays,
+        boardSortOrder: deal.boardSortOrder,
         slaDueAt: deal.slaDueAt?.toISOString() ?? null,
       })),
       conversations: conversations.map((conversation) => ({
@@ -221,11 +230,51 @@ export class SalesWorkspaceService {
     dealId: number,
     dto: MoveSalesDealStageDto,
   ) {
+    const pipeline = await this.salesPipelineService.getPipeline(tenantId);
+    this.salesPipelineService.assertStageKeyExists(pipeline, dto.stageKey);
+
     const deal = await this.getDealOrThrow(tenantId, dealId);
+    const targetDeals = await this.dealRepository.find({
+      where: { tenantId, stageKey: dto.stageKey },
+      order: { boardSortOrder: 'ASC' },
+    });
+
     deal.stageKey = dto.stageKey;
+    deal.boardSortOrder = targetDeals.length;
     deal.lastActivityAt = new Date();
     deal.inactiveDays = 0;
     await this.dealRepository.save(deal);
+    return this.getWorkspace(tenantId);
+  }
+
+  async reorderDealsInStage(tenantId: number, dto: ReorderSalesDealsDto) {
+    const pipeline = await this.salesPipelineService.getPipeline(tenantId);
+    this.salesPipelineService.assertStageKeyExists(pipeline, dto.stageKey);
+
+    const deals = await this.dealRepository.find({
+      where: {
+        tenantId,
+        stageKey: dto.stageKey,
+        id: In(dto.dealIds),
+      },
+    });
+
+    if (deals.length !== dto.dealIds.length) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        error: 'salesDealReorderInvalid',
+      });
+    }
+
+    const dealById = new Map(deals.map((deal) => [deal.id, deal]));
+
+    await this.dealRepository.save(
+      dto.dealIds.map((id, index) => ({
+        ...dealById.get(id)!,
+        boardSortOrder: index,
+      })),
+    );
+
     return this.getWorkspace(tenantId);
   }
 

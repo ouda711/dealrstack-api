@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -21,6 +22,7 @@ import { RequirePermissions } from '../access/permissions.decorator';
 import { PermissionsGuard } from '../access/permissions.guard';
 import { AssignSalesLeadDto } from './dto/assign-sales-lead.dto';
 import { MoveSalesDealStageDto } from './dto/move-sales-deal-stage.dto';
+import { ReorderSalesDealsDto } from './dto/reorder-sales-deals.dto';
 import { SalesWorkspaceSnapshotDto } from './domain/sales-workspace';
 import { SalesWorkspaceService } from './sales-workspace.service';
 
@@ -60,6 +62,21 @@ export class SalesController {
     return this.salesWorkspaceService.moveDealStage(
       Number(tenantId),
       Number(dealId),
+      dto,
+    );
+  }
+
+  @ApiOkResponse({ type: SalesWorkspaceSnapshotDto })
+  @ApiOperation({ summary: 'Reorder deals within a pipeline stage' })
+  @Put('deals/reorder')
+  @RequirePermissions('pipeline.manage')
+  @HttpCode(HttpStatus.OK)
+  reorderDealsInStage(
+    @Param('tenantId') tenantId: number,
+    @Body() dto: ReorderSalesDealsDto,
+  ) {
+    return this.salesWorkspaceService.reorderDealsInStage(
+      Number(tenantId),
       dto,
     );
   }

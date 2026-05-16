@@ -4,10 +4,14 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { BranchesService } from '../branches/branches.service';
+import { SalesDealEntity } from '../sales/infrastructure/persistence/relational/entities/sales-deal.entity';
 import { TenantsService } from '../tenants/tenants.service';
 import { DEFAULT_SALES_PIPELINE_STAGES } from './constants/default-pipeline-stages';
 import { SalesPipeline } from './domain/sales-pipeline';
+import { CreateSalesPipelineStageDto } from './dto/create-sales-pipeline-stage.dto';
 import { UpdateSalesPipelineStageDto } from './dto/update-sales-pipeline-stage.dto';
 import { SalesPipelineRepository } from './infrastructure/persistence/sales-pipeline.repository';
 
@@ -17,6 +21,8 @@ export class SalesPipelineService {
     private readonly salesPipelineRepository: SalesPipelineRepository,
     private readonly tenantsService: TenantsService,
     private readonly branchesService: BranchesService,
+    @InjectRepository(SalesDealEntity)
+    private readonly dealRepository: Repository<SalesDealEntity>,
   ) {}
 
   async getPipeline(
@@ -47,6 +53,56 @@ export class SalesPipelineService {
     }
 
     return this.ensureTenantPipeline(tenantId);
+  }
+
+  async createStage(
+    tenantId: number,
+    dto: CreateSalesPipelineStageDto,
+    branchId?: number,
+  ) {
+    const pipeline = await this.resolveMutablePipeline(tenantId, branchId);
+    const activeStages = this.getActiveStages(pipeline);
+
+    if (!dto.label?.trim()) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        errors: {
+          label: 'labelRequired',
+        },
+      });
+    }
+
+    const stageKey = this.buildUniqueStageKey(
+      dto.label,
+      activeStages.map((stage) => stage.stageKey),
+    );
+    const created = await this.salesPipelineRepository.createStage({
+      pipelineId: pipeline.id,
+      stageKey,
+      label: dto.label.trim(),
+      sortOrder: activeStages.length,
+      color: dto.color ?? 'primary',
+      isWonStage: false,
+      isLostStage: false,
+    });
+
+    const firstTerminalIndex = activeStages.findIndex(
+      (stage) => stage.isWonStage || stage.isLostStage,
+    );
+    const insertIndex =
+      firstTerminalIndex === -1 ? activeStages.length : firstTerminalIndex;
+    const orderedStageIds = [
+      ...activeStages.slice(0, insertIndex).map((stage) => stage.id),
+      created.id,
+      ...activeStages.slice(insertIndex).map((stage) => stage.id),
+    ];
+
+    await this.salesPipelineRepository.reorderStages(
+      pipeline.id,
+      orderedStageIds,
+    );
+
+    return this.getPipeline(tenantId, branchId);
   }
 
   async updateStage(
@@ -83,7 +139,7 @@ export class SalesPipelineService {
 
   async deleteStage(tenantId: number, stageId: number, branchId?: number) {
     const pipeline = await this.resolveMutablePipeline(tenantId, branchId);
-    const activeStages = pipeline.stages.filter((stage) => !stage.deletedAt);
+    const activeStages = this.getActiveStages(pipeline);
 
     if (activeStages.length <= 1) {
       throw new UnprocessableEntityException({
@@ -108,9 +164,34 @@ export class SalesPipelineService {
       });
     }
 
+    const fallbackStage =
+      activeStages.find(
+        (item) => item.id !== stageId && !item.isWonStage && !item.isLostStage,
+      ) ?? activeStages.find((item) => item.id !== stageId);
+
+    if (fallbackStage) {
+      await this.dealRepository.update(
+        { tenantId, stageKey: stage.stageKey },
+        { stageKey: fallbackStage.stageKey },
+      );
+    }
+
     await this.salesPipelineRepository.softDeleteStage(stageId);
 
     return this.getPipeline(tenantId, branchId);
+  }
+
+  assertStageKeyExists(pipeline: SalesPipeline, stageKey: string) {
+    const exists = this.getActiveStages(pipeline).some(
+      (stage) => stage.stageKey === stageKey,
+    );
+
+    if (!exists) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        error: 'pipelineStageKeyNotFound',
+      });
+    }
   }
 
   async reorderStages(tenantId: number, stageIds: number[], branchId?: number) {
@@ -287,5 +368,33 @@ export class SalesPipelineService {
         error: 'branchNotFound',
       });
     }
+  }
+
+  private getActiveStages(pipeline: SalesPipeline) {
+    return pipeline.stages
+      .filter((stage) => !stage.deletedAt)
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+  }
+
+  private buildUniqueStageKey(label: string, existingKeys: string[]) {
+    const base =
+      label
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .slice(0, 40) || 'stage';
+    const keys = new Set(existingKeys);
+
+    if (!keys.has(base)) {
+      return base;
+    }
+
+    let suffix = 2;
+
+    while (keys.has(`${base}_${suffix}`)) {
+      suffix += 1;
+    }
+
+    return `${base}_${suffix}`;
   }
 }

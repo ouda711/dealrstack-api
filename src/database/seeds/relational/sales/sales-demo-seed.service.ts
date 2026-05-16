@@ -143,6 +143,7 @@ export class SalesDemoSeedService {
     }
 
     const dealIdByDemoKey = new Map<string, number>();
+    const boardSortByStage = new Map<string, number>();
 
     for (const deal of NAIROBI_DEMO_DEALS) {
       const leadId = leadIdByDemoKey.get(deal.leadDemoKey);
@@ -156,6 +157,9 @@ export class SalesDemoSeedService {
         'conversationDemoKey' in deal && deal.conversationDemoKey
           ? conversationIdByDemoKey.get(deal.conversationDemoKey)
           : null;
+
+      const boardSortOrder = boardSortByStage.get(deal.stageKey) ?? 0;
+      boardSortByStage.set(deal.stageKey, boardSortOrder + 1);
 
       const saved = await this.dealRepository.save(
         this.dealRepository.create({
@@ -172,6 +176,7 @@ export class SalesDemoSeedService {
             'assignmentReason' in deal ? (deal.assignmentReason ?? null) : null,
           lastActivityAt: deal.lastActivityAt,
           inactiveDays: deal.inactiveDays,
+          boardSortOrder,
           slaDueAt: 'slaDueAt' in deal ? (deal.slaDueAt ?? null) : null,
           createdAt: deal.createdAt,
         }),

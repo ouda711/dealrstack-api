@@ -153,6 +153,9 @@ export class SalesWorkspaceDealDto {
   @ApiProperty()
   inactiveDays: number;
 
+  @ApiProperty()
+  boardSortOrder: number;
+
   @ApiPropertyOptional()
   slaDueAt?: string | null;
 }
