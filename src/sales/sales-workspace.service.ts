@@ -20,6 +20,8 @@ import {
   SalesActivityType,
 } from './domain/sales.enums';
 import { AssignSalesLeadDto } from './dto/assign-sales-lead.dto';
+import { CreateSalesLeadDto } from './dto/create-sales-lead.dto';
+import { ImportSalesLeadsCsvDto } from './dto/import-sales-leads-csv.dto';
 import { CreateSalesAssignmentRuleDto } from './dto/create-sales-assignment-rule.dto';
 import { UpdateSalesAssignmentRuleDto } from './dto/update-sales-assignment-rule.dto';
 import { CreateSalesFollowUpRuleDto } from './dto/create-sales-follow-up-rule.dto';
@@ -49,6 +51,8 @@ import { SalesFollowUpAutomationService } from './sales-follow-up-automation.ser
 import { SalesLeadEscalationService } from './sales-lead-escalation.service';
 import { WhatsAppIntegrationService } from '../whatsapp/whatsapp-integration.service';
 import { WhatsAppOutboundService } from '../whatsapp/whatsapp-outbound.service';
+import { phonesMatch } from '../whatsapp/utils/whatsapp-phone.util';
+import { leadSourceLabel, parseSalesLeadsCsv } from './parse-sales-leads-csv';
 import { VehicleEntity } from '../vehicles/infrastructure/persistence/relational/entities/vehicle.entity';
 import {
   VehicleMediaEntity,
@@ -789,6 +793,85 @@ export class SalesWorkspaceService {
     return this.getWorkspace(tenantId);
   }
 
+  async createLead(tenantId: number, dto: CreateSalesLeadDto) {
+    await this.getTenantOrThrow(tenantId);
+    const branch = await this.resolveBranch(tenantId, dto.branchId);
+    const existingLeads = await this.leadRepository.find({
+      where: { tenantId },
+    });
+
+    if (
+      existingLeads.some((lead) =>
+        phonesMatch(lead.customerPhone, dto.customerPhone.trim()),
+      )
+    ) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        error: 'leadPhoneAlreadyExists',
+      });
+    }
+
+    await this.persistCapturedLead({
+      tenantId,
+      branchId: branch.id,
+      source: dto.source,
+      customerName: dto.customerName.trim(),
+      customerPhone: dto.customerPhone.trim(),
+      interestSummary:
+        dto.interestSummary?.trim() || `${leadSourceLabel(dto.source)} inquiry`,
+    });
+
+    return this.getWorkspace(tenantId);
+  }
+
+  async importLeadsFromCsv(tenantId: number, dto: ImportSalesLeadsCsvDto) {
+    await this.getTenantOrThrow(tenantId);
+    const branch = await this.resolveBranch(tenantId);
+    const rows = parseSalesLeadsCsv(dto.csv);
+
+    if (!rows.length) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        error: 'csvHasNoValidRows',
+      });
+    }
+
+    const existingLeads = await this.leadRepository.find({
+      where: { tenantId },
+    });
+    let imported = 0;
+
+    for (const row of rows) {
+      const duplicate = existingLeads.some((lead) =>
+        phonesMatch(lead.customerPhone, row.customerPhone),
+      );
+
+      if (duplicate) {
+        continue;
+      }
+
+      const lead = await this.persistCapturedLead({
+        tenantId,
+        branchId: branch.id,
+        source: LeadSource.Csv,
+        customerName: row.customerName,
+        customerPhone: row.customerPhone,
+        interestSummary: row.interestSummary,
+      });
+      existingLeads.push(lead);
+      imported += 1;
+    }
+
+    if (!imported) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        error: 'csvDuplicatesOnly',
+      });
+    }
+
+    return this.getWorkspace(tenantId);
+  }
+
   async createAssignmentRule(
     tenantId: number,
     dto: CreateSalesAssignmentRuleDto,
@@ -1081,6 +1164,74 @@ export class SalesWorkspaceService {
     }
 
     return 'salesperson';
+  }
+
+  private async resolveBranch(tenantId: number, branchId?: number) {
+    const branches = await this.branchesService.findByTenantId(tenantId);
+
+    if (!branches.length) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        error: 'tenantHasNoBranches',
+      });
+    }
+
+    const branch = branches.find((item) => item.id === branchId) ?? branches[0];
+
+    if (!branch) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        error: 'branchNotFound',
+      });
+    }
+
+    return branch;
+  }
+
+  private async persistCapturedLead(input: {
+    tenantId: number;
+    branchId: number;
+    source: LeadSource;
+    customerName: string;
+    customerPhone: string;
+    interestSummary: string;
+  }): Promise<SalesLeadEntity> {
+    const now = new Date();
+    const slaDueAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+    let lead = await this.leadRepository.save(
+      this.leadRepository.create({
+        tenantId: input.tenantId,
+        branchId: input.branchId,
+        source: input.source,
+        status: LeadStatus.New,
+        priority: LeadPriority.Normal,
+        customerName: input.customerName,
+        customerPhone: input.customerPhone,
+        interestSummary: input.interestSummary,
+        assignedUserId: null,
+        assignmentReason: null,
+        unread: true,
+        slaDueAt,
+        lastActivityAt: now,
+      }),
+    );
+
+    await this.assignmentEngineService.applyToLead(lead);
+    lead = await this.leadRepository.findOneByOrFail({ id: lead.id });
+
+    await this.notificationRepository.save(
+      this.notificationRepository.create({
+        tenantId: input.tenantId,
+        kind: NotificationKind.NewLead,
+        title: `New ${leadSourceLabel(input.source)} lead`,
+        body: `${lead.customerName} — ${input.interestSummary}`,
+        leadId: lead.id,
+        read: false,
+      }),
+    );
+
+    return lead;
   }
 
   private async getTenantOrThrow(tenantId: number) {

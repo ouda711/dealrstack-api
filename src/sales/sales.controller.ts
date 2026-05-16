@@ -23,6 +23,8 @@ import { AuthGuard } from '@nestjs/passport';
 import { RequirePermissions } from '../access/permissions.decorator';
 import { PermissionsGuard } from '../access/permissions.guard';
 import { AssignSalesLeadDto } from './dto/assign-sales-lead.dto';
+import { CreateSalesLeadDto } from './dto/create-sales-lead.dto';
+import { ImportSalesLeadsCsvDto } from './dto/import-sales-leads-csv.dto';
 import { CreateSalesAssignmentRuleDto } from './dto/create-sales-assignment-rule.dto';
 import { CreateSalesFollowUpRuleDto } from './dto/create-sales-follow-up-rule.dto';
 import { UpdateSalesActivityDto } from './dto/update-sales-activity.dto';
@@ -310,6 +312,35 @@ export class SalesController {
       Number(tenantId),
       Number(ruleId),
     );
+  }
+
+  @ApiOkResponse({ type: SalesWorkspaceSnapshotDto })
+  @ApiOperation({
+    summary: 'Create a lead from website, social, phone, or manual capture',
+  })
+  @Post('leads')
+  @RequirePermissions('leads.manage')
+  @HttpCode(HttpStatus.OK)
+  createLead(
+    @Param('tenantId') tenantId: number,
+    @Body() dto: CreateSalesLeadDto,
+  ) {
+    return this.salesWorkspaceService.createLead(Number(tenantId), dto);
+  }
+
+  @ApiOkResponse({ type: SalesWorkspaceSnapshotDto })
+  @ApiOperation({
+    summary:
+      'Import leads from CSV (customerName, customerPhone, interestSummary)',
+  })
+  @Post('leads/import')
+  @RequirePermissions('leads.manage')
+  @HttpCode(HttpStatus.OK)
+  importLeadsFromCsv(
+    @Param('tenantId') tenantId: number,
+    @Body() dto: ImportSalesLeadsCsvDto,
+  ) {
+    return this.salesWorkspaceService.importLeadsFromCsv(Number(tenantId), dto);
   }
 
   @ApiOkResponse({ type: SalesWorkspaceSnapshotDto })
