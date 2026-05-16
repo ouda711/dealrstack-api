@@ -44,6 +44,7 @@ import {
   computeSalesWorkspaceDashboardMetrics,
   INVENTORY_AGING_STATUSES,
 } from './compute-sales-workspace-dashboard-metrics';
+import { SalesFollowUpAutomationService } from './sales-follow-up-automation.service';
 import { VehicleEntity } from '../vehicles/infrastructure/persistence/relational/entities/vehicle.entity';
 import {
   VehicleMediaEntity,
@@ -77,6 +78,7 @@ export class SalesWorkspaceService {
     private readonly branchesService: BranchesService,
     private readonly accessService: AccessService,
     private readonly salesPipelineService: SalesPipelineService,
+    private readonly followUpAutomationService: SalesFollowUpAutomationService,
   ) {}
 
   async getWorkspace(tenantId: number): Promise<SalesWorkspaceSnapshotDto> {
@@ -107,14 +109,6 @@ export class SalesWorkspaceService {
             .orderBy('message.sentAt', 'ASC')
             .getMany()
         : [];
-    const activities = await this.activityRepository.find({
-      where: { tenantId },
-      order: { createdAt: 'DESC' },
-    });
-    const notifications = await this.notificationRepository.find({
-      where: { tenantId },
-      order: { createdAt: 'DESC' },
-    });
     const assignmentRules = await this.assignmentRuleRepository.find({
       where: { tenantId },
       order: { priority: 'ASC' },
@@ -122,6 +116,26 @@ export class SalesWorkspaceService {
     const followUpRules = await this.followUpRuleRepository.find({
       where: { tenantId },
     });
+
+    await this.followUpAutomationService.evaluateTenant({
+      tenantId,
+      rules: followUpRules,
+      leads,
+      deals,
+      conversations,
+      messages,
+    });
+
+    const activitiesAfterAutomation = await this.activityRepository.find({
+      where: { tenantId },
+      order: { createdAt: 'DESC' },
+    });
+    const notificationsAfterAutomation = await this.notificationRepository.find(
+      {
+        where: { tenantId },
+        order: { createdAt: 'DESC' },
+      },
+    );
 
     const conversationIdByLeadId = new Map(
       conversations.map((c) => [c.leadId, c.id]),
@@ -142,7 +156,7 @@ export class SalesWorkspaceService {
       },
       select: { id: true, createdAt: true },
     });
-    const overdueFollowUpsCount = activities.filter(
+    const overdueFollowUpsCount = activitiesAfterAutomation.filter(
       (activity) => activity.status === FollowUpStatus.Overdue,
     ).length;
     const metrics = computeSalesWorkspaceDashboardMetrics({
@@ -270,7 +284,7 @@ export class SalesWorkspaceService {
         isTemplate: message.isTemplate,
         mediaType: message.mediaType ?? null,
       })),
-      activities: activities.map((activity) => ({
+      activities: activitiesAfterAutomation.map((activity) => ({
         id: String(activity.id),
         tenantId: String(activity.tenantId),
         leadId: activity.leadId ? String(activity.leadId) : null,
@@ -284,7 +298,7 @@ export class SalesWorkspaceService {
         automated: activity.automated,
         createdAt: activity.createdAt.toISOString(),
       })),
-      notifications: notifications.map((notification) => ({
+      notifications: notificationsAfterAutomation.map((notification) => ({
         id: String(notification.id),
         tenantId: String(notification.tenantId),
         kind: notification.kind,

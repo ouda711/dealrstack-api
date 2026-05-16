@@ -6,6 +6,7 @@ import { SalesPipelineModule } from '../sales-pipeline/sales-pipeline.module';
 import { TenantsModule } from '../tenants/tenants.module';
 import { RelationalSalesPersistenceModule } from './infrastructure/persistence/relational/relational-persistence.module';
 import { SalesController } from './sales.controller';
+import { SalesFollowUpAutomationService } from './sales-follow-up-automation.service';
 import { SalesWorkspaceService } from './sales-workspace.service';
 
 @Module({
@@ -17,7 +18,11 @@ import { SalesWorkspaceService } from './sales-workspace.service';
     AccessModule,
   ],
   controllers: [SalesController],
-  providers: [SalesWorkspaceService, PermissionsGuard],
+  providers: [
+    SalesWorkspaceService,
+    SalesFollowUpAutomationService,
+    PermissionsGuard,
+  ],
   exports: [SalesWorkspaceService, RelationalSalesPersistenceModule],
 })
 export class SalesModule {}

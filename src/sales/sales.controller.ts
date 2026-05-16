@@ -163,6 +163,20 @@ export class SalesController {
   }
 
   @ApiOkResponse({ type: SalesWorkspaceSnapshotDto })
+  @ApiOkResponse({ type: SalesWorkspaceSnapshotDto })
+  @ApiOperation({
+    summary: 'Evaluate enabled follow-up rules for the tenant',
+    description:
+      'Creates or updates automated follow-up activities and overdue notifications based on current leads, deals, and conversations.',
+  })
+  @Post('follow-up-rules/evaluate')
+  @RequirePermissions('leads.manage', 'pipeline.manage')
+  @HttpCode(HttpStatus.OK)
+  @ApiParam({ name: 'tenantId', type: Number, required: true })
+  evaluateFollowUpRules(@Param('tenantId') tenantId: number) {
+    return this.salesWorkspaceService.getWorkspace(Number(tenantId));
+  }
+
   @ApiOperation({ summary: 'Create an automated follow-up rule' })
   @Post('follow-up-rules')
   @RequirePermissions('leads.manage')
