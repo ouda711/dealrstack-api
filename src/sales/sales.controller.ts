@@ -25,6 +25,7 @@ import { AssignSalesLeadDto } from './dto/assign-sales-lead.dto';
 import { CreateSalesPipelineDealDto } from './dto/create-sales-pipeline-deal.dto';
 import { MoveSalesDealStageDto } from './dto/move-sales-deal-stage.dto';
 import { ReorderSalesDealsDto } from './dto/reorder-sales-deals.dto';
+import { UpdateSalesPipelineDealDto } from './dto/update-sales-pipeline-deal.dto';
 import { SalesWorkspaceSnapshotDto } from './domain/sales-workspace';
 import { SalesWorkspaceService } from './sales-workspace.service';
 
@@ -68,6 +69,23 @@ export class SalesController {
       Number(tenantId),
       dto,
       request.user?.id,
+    );
+  }
+
+  @ApiOkResponse({ type: SalesWorkspaceSnapshotDto })
+  @ApiOperation({ summary: 'Update a pipeline deal card and linked lead' })
+  @Patch('deals/:dealId')
+  @RequirePermissions('pipeline.manage', 'leads.manage')
+  @HttpCode(HttpStatus.OK)
+  updatePipelineDeal(
+    @Param('tenantId') tenantId: number,
+    @Param('dealId') dealId: number,
+    @Body() dto: UpdateSalesPipelineDealDto,
+  ) {
+    return this.salesWorkspaceService.updatePipelineDeal(
+      Number(tenantId),
+      Number(dealId),
+      dto,
     );
   }
 

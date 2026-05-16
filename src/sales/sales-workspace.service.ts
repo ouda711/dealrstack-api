@@ -20,6 +20,7 @@ import { AssignSalesLeadDto } from './dto/assign-sales-lead.dto';
 import { CreateSalesPipelineDealDto } from './dto/create-sales-pipeline-deal.dto';
 import { MoveSalesDealStageDto } from './dto/move-sales-deal-stage.dto';
 import { ReorderSalesDealsDto } from './dto/reorder-sales-deals.dto';
+import { UpdateSalesPipelineDealDto } from './dto/update-sales-pipeline-deal.dto';
 import { SalesWorkspaceSnapshotDto } from './domain/sales-workspace';
 import { SalesActivityEntity } from './infrastructure/persistence/relational/entities/sales-activity.entity';
 import { SalesAssignmentRuleEntity } from './infrastructure/persistence/relational/entities/sales-assignment-rule.entity';
@@ -29,6 +30,7 @@ import { SalesFollowUpRuleEntity } from './infrastructure/persistence/relational
 import { SalesLeadEntity } from './infrastructure/persistence/relational/entities/sales-lead.entity';
 import { SalesMessageEntity } from './infrastructure/persistence/relational/entities/sales-message.entity';
 import { SalesNotificationEntity } from './infrastructure/persistence/relational/entities/sales-notification.entity';
+import { VehicleEntity } from '../vehicles/infrastructure/persistence/relational/entities/vehicle.entity';
 import {
   VehicleMediaEntity,
   VehicleMediaKind,
@@ -55,6 +57,8 @@ export class SalesWorkspaceService {
     private readonly followUpRuleRepository: Repository<SalesFollowUpRuleEntity>,
     @InjectRepository(VehicleMediaEntity)
     private readonly vehicleMediaRepository: Repository<VehicleMediaEntity>,
+    @InjectRepository(VehicleEntity)
+    private readonly vehicleRepository: Repository<VehicleEntity>,
     private readonly tenantsService: TenantsService,
     private readonly branchesService: BranchesService,
     private readonly accessService: AccessService,
@@ -251,6 +255,108 @@ export class SalesWorkspaceService {
         enabled: rule.enabled,
       })),
     };
+  }
+
+  async updatePipelineDeal(
+    tenantId: number,
+    dealId: number,
+    dto: UpdateSalesPipelineDealDto,
+  ) {
+    const deal = await this.getDealOrThrow(tenantId, dealId);
+    const lead = await this.getLeadOrThrow(tenantId, deal.leadId);
+
+    if (dto.stageKey !== undefined) {
+      const pipeline = await this.salesPipelineService.getPipeline(tenantId);
+      this.salesPipelineService.assertStageKeyExists(pipeline, dto.stageKey);
+
+      if (dto.stageKey !== deal.stageKey) {
+        const targetDeals = await this.dealRepository.find({
+          where: { tenantId, stageKey: dto.stageKey },
+        });
+        deal.stageKey = dto.stageKey;
+        deal.boardSortOrder = targetDeals.length;
+      }
+    }
+
+    if (dto.title !== undefined) {
+      deal.title = dto.title.trim();
+    }
+
+    if (dto.valueKes !== undefined) {
+      deal.valueKes = String(dto.valueKes);
+    }
+
+    if (dto.assignedUserId !== undefined) {
+      deal.assignedUserId = dto.assignedUserId;
+      lead.assignedUserId = dto.assignedUserId;
+    }
+
+    if (dto.branchId !== undefined) {
+      const branches = await this.branchesService.findByTenantId(tenantId);
+      const branch = branches.find((item) => item.id === dto.branchId);
+
+      if (!branch) {
+        throw new UnprocessableEntityException({
+          status: HttpStatus.UNPROCESSABLE_ENTITY,
+          error: 'branchNotFound',
+        });
+      }
+
+      deal.branchId = branch.id;
+      lead.branchId = branch.id;
+    }
+
+    if (dto.customerName !== undefined) {
+      lead.customerName = dto.customerName.trim();
+    }
+
+    if (dto.customerPhone !== undefined) {
+      lead.customerPhone = dto.customerPhone.trim();
+    }
+
+    if (dto.interestSummary !== undefined) {
+      lead.interestSummary = dto.interestSummary.trim();
+    }
+
+    if (dto.priority !== undefined) {
+      lead.priority = dto.priority;
+    }
+
+    if (dto.vehicleId !== undefined) {
+      if (dto.vehicleId === null) {
+        lead.vehicleId = null;
+      } else {
+        const vehicle = await this.vehicleRepository.findOne({
+          where: { id: dto.vehicleId, tenantId },
+        });
+
+        if (!vehicle) {
+          throw new NotFoundException({
+            status: HttpStatus.NOT_FOUND,
+            error: 'vehicleNotFound',
+          });
+        }
+
+        lead.vehicleId = vehicle.id;
+      }
+    }
+
+    const now = new Date();
+    deal.lastActivityAt = now;
+    deal.inactiveDays = 0;
+    lead.lastActivityAt = now;
+
+    await this.leadRepository.save(lead);
+    await this.dealRepository.save(deal);
+
+    if (dto.customerName !== undefined && deal.conversationId) {
+      await this.conversationRepository.update(
+        { id: deal.conversationId, tenantId },
+        { customerName: lead.customerName },
+      );
+    }
+
+    return this.getWorkspace(tenantId);
   }
 
   async moveDealStage(
