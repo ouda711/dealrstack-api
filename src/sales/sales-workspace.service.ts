@@ -46,6 +46,7 @@ import {
 } from './compute-sales-workspace-dashboard-metrics';
 import { SalesAssignmentEngineService } from './sales-assignment-engine.service';
 import { SalesFollowUpAutomationService } from './sales-follow-up-automation.service';
+import { SalesLeadEscalationService } from './sales-lead-escalation.service';
 import { WhatsAppIntegrationService } from '../whatsapp/whatsapp-integration.service';
 import { WhatsAppOutboundService } from '../whatsapp/whatsapp-outbound.service';
 import { VehicleEntity } from '../vehicles/infrastructure/persistence/relational/entities/vehicle.entity';
@@ -83,6 +84,7 @@ export class SalesWorkspaceService {
     private readonly salesPipelineService: SalesPipelineService,
     private readonly followUpAutomationService: SalesFollowUpAutomationService,
     private readonly assignmentEngineService: SalesAssignmentEngineService,
+    private readonly leadEscalationService: SalesLeadEscalationService,
     private readonly whatsAppIntegrationService: WhatsAppIntegrationService,
     private readonly whatsAppOutboundService: WhatsAppOutboundService,
   ) {}
@@ -133,6 +135,8 @@ export class SalesWorkspaceService {
     });
 
     await this.assignmentEngineService.evaluateUnassignedLeads(tenantId);
+
+    await this.leadEscalationService.evaluateTenant(tenantId);
 
     const leadsAfterAssignment = await this.leadRepository.find({
       where: { tenantId },

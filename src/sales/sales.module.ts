@@ -8,6 +8,7 @@ import { RelationalSalesPersistenceModule } from './infrastructure/persistence/r
 import { SalesController } from './sales.controller';
 import { SalesAssignmentModule } from './sales-assignment.module';
 import { SalesFollowUpAutomationService } from './sales-follow-up-automation.service';
+import { SalesLeadEscalationService } from './sales-lead-escalation.service';
 import { SalesWorkspaceService } from './sales-workspace.service';
 import { WhatsAppModule } from '../whatsapp/whatsapp.module';
 
@@ -25,6 +26,7 @@ import { WhatsAppModule } from '../whatsapp/whatsapp.module';
   providers: [
     SalesWorkspaceService,
     SalesFollowUpAutomationService,
+    SalesLeadEscalationService,
     PermissionsGuard,
   ],
   exports: [SalesWorkspaceService, RelationalSalesPersistenceModule],

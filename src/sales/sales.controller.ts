@@ -252,6 +252,20 @@ export class SalesController {
   }
 
   @ApiOkResponse({ type: SalesWorkspaceSnapshotDto })
+  @ApiOperation({
+    summary: 'Evaluate ignored leads for manager escalation',
+    description:
+      'Marks qualifying unassigned, SLA-breached, or stale unread leads as urgent and notifies managers.',
+  })
+  @Post('escalation/evaluate')
+  @RequirePermissions('assignments.manage', 'leads.manage')
+  @HttpCode(HttpStatus.OK)
+  @ApiParam({ name: 'tenantId', type: Number, required: true })
+  evaluateLeadEscalations(@Param('tenantId') tenantId: number) {
+    return this.salesWorkspaceService.getWorkspace(Number(tenantId));
+  }
+
+  @ApiOkResponse({ type: SalesWorkspaceSnapshotDto })
   @ApiOperation({ summary: 'Create a lead assignment rule' })
   @Post('assignment-rules')
   @RequirePermissions('assignments.manage')
