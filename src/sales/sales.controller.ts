@@ -8,6 +8,7 @@ import {
   Patch,
   Post,
   Put,
+  Request,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -21,6 +22,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { RequirePermissions } from '../access/permissions.decorator';
 import { PermissionsGuard } from '../access/permissions.guard';
 import { AssignSalesLeadDto } from './dto/assign-sales-lead.dto';
+import { CreateSalesPipelineDealDto } from './dto/create-sales-pipeline-deal.dto';
 import { MoveSalesDealStageDto } from './dto/move-sales-deal-stage.dto';
 import { ReorderSalesDealsDto } from './dto/reorder-sales-deals.dto';
 import { SalesWorkspaceSnapshotDto } from './domain/sales-workspace';
@@ -48,6 +50,25 @@ export class SalesController {
   @ApiParam({ name: 'tenantId', type: Number, required: true })
   getWorkspace(@Param('tenantId') tenantId: number) {
     return this.salesWorkspaceService.getWorkspace(Number(tenantId));
+  }
+
+  @ApiOkResponse({ type: SalesWorkspaceSnapshotDto })
+  @ApiOperation({
+    summary: 'Create a lead and deal card on the pipeline board',
+  })
+  @Post('deals')
+  @RequirePermissions('pipeline.manage', 'leads.manage')
+  @HttpCode(HttpStatus.OK)
+  createPipelineDeal(
+    @Param('tenantId') tenantId: number,
+    @Body() dto: CreateSalesPipelineDealDto,
+    @Request() request: { user?: { id: number } },
+  ) {
+    return this.salesWorkspaceService.createPipelineDeal(
+      Number(tenantId),
+      dto,
+      request.user?.id,
+    );
   }
 
   @ApiOkResponse({ type: SalesWorkspaceSnapshotDto })

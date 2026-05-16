@@ -10,7 +10,14 @@ import { AccessService } from '../access/access.service';
 import { BranchesService } from '../branches/branches.service';
 import { SalesPipelineService } from '../sales-pipeline/sales-pipeline.service';
 import { TenantsService } from '../tenants/tenants.service';
+import {
+  LeadPriority,
+  LeadSource,
+  LeadStatus,
+  NotificationKind,
+} from './domain/sales.enums';
 import { AssignSalesLeadDto } from './dto/assign-sales-lead.dto';
+import { CreateSalesPipelineDealDto } from './dto/create-sales-pipeline-deal.dto';
 import { MoveSalesDealStageDto } from './dto/move-sales-deal-stage.dto';
 import { ReorderSalesDealsDto } from './dto/reorder-sales-deals.dto';
 import { SalesWorkspaceSnapshotDto } from './domain/sales-workspace';
@@ -273,6 +280,106 @@ export class SalesWorkspaceService {
         ...dealById.get(id)!,
         boardSortOrder: index,
       })),
+    );
+
+    return this.getWorkspace(tenantId);
+  }
+
+  async createPipelineDeal(
+    tenantId: number,
+    dto: CreateSalesPipelineDealDto,
+    requestingUserId?: number,
+  ) {
+    await this.getTenantOrThrow(tenantId);
+    const branches = await this.branchesService.findByTenantId(tenantId);
+
+    if (!branches.length) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        error: 'tenantHasNoBranches',
+      });
+    }
+
+    const branch =
+      branches.find((item) => item.id === dto.branchId) ?? branches[0];
+
+    if (!branch) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        error: 'branchNotFound',
+      });
+    }
+
+    const pipeline = await this.salesPipelineService.getPipeline(tenantId);
+    this.salesPipelineService.assertStageKeyExists(pipeline, dto.stageKey);
+
+    const memberships =
+      await this.accessService.findTenantMemberships(tenantId);
+    const assignedUserId =
+      dto.assignedUserId ??
+      requestingUserId ??
+      memberships.find((membership) => membership.user?.id)?.user?.id;
+
+    if (!assignedUserId) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        error: 'assignedUserRequired',
+      });
+    }
+
+    const now = new Date();
+    const slaDueAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const interestSummary = dto.interestSummary?.trim() || dto.title.trim();
+
+    const lead = await this.leadRepository.save(
+      this.leadRepository.create({
+        tenantId,
+        branchId: branch.id,
+        source: LeadSource.Manual,
+        status: LeadStatus.New,
+        priority: LeadPriority.Normal,
+        customerName: dto.customerName.trim(),
+        customerPhone: dto.customerPhone.trim(),
+        interestSummary,
+        assignedUserId,
+        assignmentReason: 'Added from pipeline board',
+        unread: true,
+        slaDueAt,
+        lastActivityAt: now,
+      }),
+    );
+
+    const stageDeals = await this.dealRepository.find({
+      where: { tenantId, stageKey: dto.stageKey },
+    });
+
+    const deal = await this.dealRepository.save(
+      this.dealRepository.create({
+        tenantId,
+        branchId: branch.id,
+        leadId: lead.id,
+        stageKey: dto.stageKey,
+        title: dto.title.trim(),
+        valueKes: String(dto.valueKes ?? 0),
+        assignedUserId,
+        assignmentReason: 'Added from pipeline board',
+        lastActivityAt: now,
+        inactiveDays: 0,
+        boardSortOrder: stageDeals.length,
+        slaDueAt,
+      }),
+    );
+
+    await this.notificationRepository.save(
+      this.notificationRepository.create({
+        tenantId,
+        kind: NotificationKind.NewLead,
+        title: 'New pipeline card',
+        body: `${lead.customerName} — ${dto.title.trim()}`,
+        leadId: lead.id,
+        dealId: deal.id,
+        read: false,
+      }),
     );
 
     return this.getWorkspace(tenantId);
