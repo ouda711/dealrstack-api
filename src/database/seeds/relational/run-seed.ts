@@ -8,6 +8,7 @@ import { AccessSeedService } from './access/access-seed.service';
 import { BranchSeedService } from './branch/branch-seed.service';
 import { VehicleCatalogSeedService } from './vehicle-catalog/vehicle-catalog-seed.service';
 import { SalesPipelineSeedService } from './sales-pipeline/sales-pipeline-seed.service';
+import { SalesDemoSeedService } from './sales/sales-demo-seed.service';
 
 const runSeed = async () => {
   const app = await NestFactory.create(SeedModule);
@@ -20,6 +21,7 @@ const runSeed = async () => {
   await app.get(AccessSeedService).run();
   await app.get(BranchSeedService).run();
   await app.get(SalesPipelineSeedService).run();
+  await app.get(SalesDemoSeedService).run();
   await app.get(VehicleCatalogSeedService).run();
 
   await app.close();

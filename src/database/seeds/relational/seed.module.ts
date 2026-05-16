@@ -14,6 +14,7 @@ import { AccessSeedModule } from './access/access-seed.module';
 import { BranchSeedModule } from './branch/branch-seed.module';
 import { VehicleCatalogSeedModule } from './vehicle-catalog/vehicle-catalog-seed.module';
 import { SalesPipelineSeedModule } from './sales-pipeline/sales-pipeline-seed.module';
+import { SalesDemoSeedModule } from './sales/sales-demo-seed.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { SalesPipelineSeedModule } from './sales-pipeline/sales-pipeline-seed.mo
     AccessSeedModule,
     BranchSeedModule,
     SalesPipelineSeedModule,
+    SalesDemoSeedModule,
     VehicleCatalogSeedModule,
     ConfigModule.forRoot({
       isGlobal: true,
