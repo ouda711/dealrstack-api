@@ -24,7 +24,10 @@ import { RequirePermissions } from '../access/permissions.decorator';
 import { PermissionsGuard } from '../access/permissions.guard';
 import { AssignSalesLeadDto } from './dto/assign-sales-lead.dto';
 import { CreateSalesAssignmentRuleDto } from './dto/create-sales-assignment-rule.dto';
+import { CreateSalesFollowUpRuleDto } from './dto/create-sales-follow-up-rule.dto';
+import { UpdateSalesActivityDto } from './dto/update-sales-activity.dto';
 import { UpdateSalesAssignmentRuleDto } from './dto/update-sales-assignment-rule.dto';
+import { UpdateSalesFollowUpRuleDto } from './dto/update-sales-follow-up-rule.dto';
 import { CreateSalesDealActivityDto } from './dto/create-sales-deal-activity.dto';
 import { CreateSalesPipelineDealDto } from './dto/create-sales-pipeline-deal.dto';
 import { MoveSalesDealStageDto } from './dto/move-sales-deal-stage.dto';
@@ -155,6 +158,67 @@ export class SalesController {
     return this.salesWorkspaceService.sendConversationMessage(
       Number(tenantId),
       Number(conversationId),
+      dto,
+    );
+  }
+
+  @ApiOkResponse({ type: SalesWorkspaceSnapshotDto })
+  @ApiOperation({ summary: 'Create an automated follow-up rule' })
+  @Post('follow-up-rules')
+  @RequirePermissions('leads.manage')
+  @HttpCode(HttpStatus.OK)
+  createFollowUpRule(
+    @Param('tenantId') tenantId: number,
+    @Body() dto: CreateSalesFollowUpRuleDto,
+  ) {
+    return this.salesWorkspaceService.createFollowUpRule(Number(tenantId), dto);
+  }
+
+  @ApiOkResponse({ type: SalesWorkspaceSnapshotDto })
+  @ApiOperation({ summary: 'Update an automated follow-up rule' })
+  @Patch('follow-up-rules/:ruleId')
+  @RequirePermissions('leads.manage')
+  @HttpCode(HttpStatus.OK)
+  updateFollowUpRule(
+    @Param('tenantId') tenantId: number,
+    @Param('ruleId') ruleId: number,
+    @Body() dto: UpdateSalesFollowUpRuleDto,
+  ) {
+    return this.salesWorkspaceService.updateFollowUpRule(
+      Number(tenantId),
+      Number(ruleId),
+      dto,
+    );
+  }
+
+  @ApiOkResponse({ type: SalesWorkspaceSnapshotDto })
+  @ApiOperation({ summary: 'Delete an automated follow-up rule' })
+  @Delete('follow-up-rules/:ruleId')
+  @RequirePermissions('leads.manage')
+  @HttpCode(HttpStatus.OK)
+  deleteFollowUpRule(
+    @Param('tenantId') tenantId: number,
+    @Param('ruleId') ruleId: number,
+  ) {
+    return this.salesWorkspaceService.deleteFollowUpRule(
+      Number(tenantId),
+      Number(ruleId),
+    );
+  }
+
+  @ApiOkResponse({ type: SalesWorkspaceSnapshotDto })
+  @ApiOperation({ summary: 'Update follow-up activity status' })
+  @Patch('activities/:activityId')
+  @RequirePermissions('leads.manage')
+  @HttpCode(HttpStatus.OK)
+  updateActivityStatus(
+    @Param('tenantId') tenantId: number,
+    @Param('activityId') activityId: number,
+    @Body() dto: UpdateSalesActivityDto,
+  ) {
+    return this.salesWorkspaceService.updateActivityStatus(
+      Number(tenantId),
+      Number(activityId),
       dto,
     );
   }

@@ -22,6 +22,9 @@ import {
 import { AssignSalesLeadDto } from './dto/assign-sales-lead.dto';
 import { CreateSalesAssignmentRuleDto } from './dto/create-sales-assignment-rule.dto';
 import { UpdateSalesAssignmentRuleDto } from './dto/update-sales-assignment-rule.dto';
+import { CreateSalesFollowUpRuleDto } from './dto/create-sales-follow-up-rule.dto';
+import { UpdateSalesFollowUpRuleDto } from './dto/update-sales-follow-up-rule.dto';
+import { UpdateSalesActivityDto } from './dto/update-sales-activity.dto';
 import { CreateSalesPipelineDealDto } from './dto/create-sales-pipeline-deal.dto';
 import { MoveSalesDealStageDto } from './dto/move-sales-deal-stage.dto';
 import { ReorderSalesDealsDto } from './dto/reorder-sales-deals.dto';
@@ -737,6 +740,98 @@ export class SalesWorkspaceService {
     return this.getWorkspace(tenantId);
   }
 
+  async createFollowUpRule(tenantId: number, dto: CreateSalesFollowUpRuleDto) {
+    await this.getTenantOrThrow(tenantId);
+
+    await this.followUpRuleRepository.save(
+      this.followUpRuleRepository.create({
+        tenantId,
+        label: dto.label.trim(),
+        trigger: dto.trigger.trim(),
+        delayMinutes: dto.delayMinutes,
+        enabled: dto.enabled ?? true,
+      }),
+    );
+
+    return this.getWorkspace(tenantId);
+  }
+
+  async updateFollowUpRule(
+    tenantId: number,
+    ruleId: number,
+    dto: UpdateSalesFollowUpRuleDto,
+  ) {
+    const rule = await this.getFollowUpRuleOrThrow(tenantId, ruleId);
+
+    if (dto.label !== undefined) {
+      rule.label = dto.label.trim();
+    }
+
+    if (dto.trigger !== undefined) {
+      rule.trigger = dto.trigger.trim();
+    }
+
+    if (dto.delayMinutes !== undefined) {
+      rule.delayMinutes = dto.delayMinutes;
+    }
+
+    if (dto.enabled !== undefined) {
+      rule.enabled = dto.enabled;
+    }
+
+    await this.followUpRuleRepository.save(rule);
+    return this.getWorkspace(tenantId);
+  }
+
+  async deleteFollowUpRule(tenantId: number, ruleId: number) {
+    const rule = await this.getFollowUpRuleOrThrow(tenantId, ruleId);
+    await this.followUpRuleRepository.softRemove(rule);
+    return this.getWorkspace(tenantId);
+  }
+
+  async updateActivityStatus(
+    tenantId: number,
+    activityId: number,
+    dto: UpdateSalesActivityDto,
+  ) {
+    const activity = await this.activityRepository.findOne({
+      where: { id: activityId, tenantId },
+    });
+
+    if (!activity) {
+      throw new NotFoundException({
+        status: HttpStatus.NOT_FOUND,
+        error: 'activityNotFound',
+      });
+    }
+
+    activity.status = dto.status;
+
+    if (
+      dto.status === FollowUpStatus.Completed ||
+      dto.status === FollowUpStatus.Skipped
+    ) {
+      activity.completedAt = new Date();
+    }
+
+    await this.activityRepository.save(activity);
+
+    if (activity.leadId) {
+      const lead = await this.getLeadOrThrow(tenantId, activity.leadId);
+      lead.lastActivityAt = new Date();
+      await this.leadRepository.save(lead);
+    }
+
+    if (activity.dealId) {
+      await this.dealRepository.update(
+        { id: activity.dealId, tenantId },
+        { lastActivityAt: new Date(), inactiveDays: 0 },
+      );
+    }
+
+    return this.getWorkspace(tenantId);
+  }
+
   async assignLead(tenantId: number, leadId: number, dto: AssignSalesLeadDto) {
     const lead = await this.getLeadOrThrow(tenantId, leadId);
     lead.assignedUserId = dto.assignedUserId;
@@ -939,6 +1034,21 @@ export class SalesWorkspaceService {
         completedAt: now,
       }),
     );
+  }
+
+  private async getFollowUpRuleOrThrow(tenantId: number, ruleId: number) {
+    const rule = await this.followUpRuleRepository.findOne({
+      where: { id: ruleId, tenantId },
+    });
+
+    if (!rule) {
+      throw new NotFoundException({
+        status: HttpStatus.NOT_FOUND,
+        error: 'followUpRuleNotFound',
+      });
+    }
+
+    return rule;
   }
 
   private async getAssignmentRuleOrThrow(tenantId: number, ruleId: number) {
