@@ -52,6 +52,10 @@ export class SalesMessageEntity extends EntityRelationalHelper {
   @Column({ type: String, length: 20, nullable: true })
   mediaType?: string | null;
 
+  @Index()
+  @Column({ type: String, length: 128, nullable: true })
+  whatsappMessageId?: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

@@ -56,6 +56,15 @@ AUTH_CONFIRM_EMAIL_TOKEN_EXPIRES_IN=1d
 FACEBOOK_APP_ID=
 FACEBOOK_APP_SECRET=
 
+# Meta WhatsApp Cloud API (DealrStack app — shared webhook + per-tenant tokens)
+WHATSAPP_API_VERSION=v21.0
+WHATSAPP_APP_SECRET=
+WHATSAPP_WEBHOOK_VERIFY_TOKEN=
+# Optional: wire demo tenant when running seeds (each real tenant connects via PUT /whatsapp-integration)
+WHATSAPP_DEMO_TENANT_SLUG=nairobi-auto-hub
+WHATSAPP_DEMO_PHONE_NUMBER_ID=
+WHATSAPP_DEMO_ACCESS_TOKEN=
+
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 

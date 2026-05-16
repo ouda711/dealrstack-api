@@ -8,6 +8,7 @@ import { RelationalSalesPersistenceModule } from './infrastructure/persistence/r
 import { SalesController } from './sales.controller';
 import { SalesFollowUpAutomationService } from './sales-follow-up-automation.service';
 import { SalesWorkspaceService } from './sales-workspace.service';
+import { WhatsAppModule } from '../whatsapp/whatsapp.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { SalesWorkspaceService } from './sales-workspace.service';
     TenantsModule,
     BranchesModule,
     AccessModule,
+    WhatsAppModule,
   ],
   controllers: [SalesController],
   providers: [

@@ -334,6 +334,17 @@ export class SalesWorkspaceFollowUpRuleDto {
   enabled: boolean;
 }
 
+export class SalesWorkspaceWhatsAppDto {
+  @ApiProperty()
+  connected: boolean;
+
+  @ApiPropertyOptional()
+  phoneNumberId?: string | null;
+
+  @ApiPropertyOptional()
+  displayPhoneNumber?: string | null;
+}
+
 export class SalesWorkspaceDashboardMetricsDto {
   @ApiProperty()
   avgResponseMinutes: number;
@@ -390,6 +401,9 @@ export class SalesWorkspaceDashboardMetricsDto {
 export class SalesWorkspaceSnapshotDto {
   @ApiProperty({ type: SalesWorkspaceDashboardMetricsDto })
   metrics: SalesWorkspaceDashboardMetricsDto;
+
+  @ApiProperty({ type: SalesWorkspaceWhatsAppDto })
+  whatsapp: SalesWorkspaceWhatsAppDto;
 
   @ApiProperty({ type: [SalesWorkspaceTenantDto] })
   tenants: SalesWorkspaceTenantDto[];

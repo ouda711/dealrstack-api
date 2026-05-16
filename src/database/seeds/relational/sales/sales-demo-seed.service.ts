@@ -12,6 +12,7 @@ import { SalesMessageEntity } from '../../../../sales/infrastructure/persistence
 import { SalesNotificationEntity } from '../../../../sales/infrastructure/persistence/relational/entities/sales-notification.entity';
 import { TenantEntity } from '../../../../tenants/infrastructure/persistence/relational/entities/tenant.entity';
 import { UserEntity } from '../../../../users/infrastructure/persistence/relational/entities/user.entity';
+import { TenantWhatsAppIntegrationEntity } from '../../../../whatsapp/infrastructure/persistence/relational/entities/tenant-whatsapp-integration.entity';
 import {
   NAIROBI_DEMO_ACTIVITIES,
   NAIROBI_DEMO_ASSIGNMENT_RULES,
@@ -49,6 +50,8 @@ export class SalesDemoSeedService {
     private readonly assignmentRuleRepository: Repository<SalesAssignmentRuleEntity>,
     @InjectRepository(SalesFollowUpRuleEntity)
     private readonly followUpRuleRepository: Repository<SalesFollowUpRuleEntity>,
+    @InjectRepository(TenantWhatsAppIntegrationEntity)
+    private readonly whatsAppIntegrationRepository: Repository<TenantWhatsAppIntegrationEntity>,
   ) {}
 
   async run() {
@@ -66,6 +69,7 @@ export class SalesDemoSeedService {
 
     if (existingLead) {
       await this.patchDemoDealImages(tenant.id);
+      await this.seedWhatsAppIntegration(tenant);
       return;
     }
 
@@ -276,6 +280,40 @@ export class SalesDemoSeedService {
         }),
       );
     }
+
+    await this.seedWhatsAppIntegration(tenant);
+  }
+
+  private async seedWhatsAppIntegration(tenant: TenantEntity) {
+    const phoneNumberId = process.env.WHATSAPP_DEMO_PHONE_NUMBER_ID?.trim();
+    const accessToken = process.env.WHATSAPP_DEMO_ACCESS_TOKEN?.trim();
+    const tenantSlug =
+      process.env.WHATSAPP_DEMO_TENANT_SLUG?.trim() || 'nairobi-auto-hub';
+
+    if (!phoneNumberId || !accessToken || tenant.slug !== tenantSlug) {
+      return;
+    }
+
+    const existing = await this.whatsAppIntegrationRepository.findOne({
+      where: { tenantId: tenant.id },
+    });
+
+    const record = existing
+      ? Object.assign(existing, {
+          phoneNumberId,
+          accessToken,
+          displayPhoneNumber: tenant.phone ?? null,
+          isEnabled: true,
+        })
+      : this.whatsAppIntegrationRepository.create({
+          tenantId: tenant.id,
+          phoneNumberId,
+          accessToken,
+          displayPhoneNumber: tenant.phone ?? null,
+          isEnabled: true,
+        });
+
+    await this.whatsAppIntegrationRepository.save(record);
   }
 
   private async patchDemoDealImages(tenantId: number) {

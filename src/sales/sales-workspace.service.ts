@@ -45,6 +45,8 @@ import {
   INVENTORY_AGING_STATUSES,
 } from './compute-sales-workspace-dashboard-metrics';
 import { SalesFollowUpAutomationService } from './sales-follow-up-automation.service';
+import { WhatsAppIntegrationService } from '../whatsapp/whatsapp-integration.service';
+import { WhatsAppOutboundService } from '../whatsapp/whatsapp-outbound.service';
 import { VehicleEntity } from '../vehicles/infrastructure/persistence/relational/entities/vehicle.entity';
 import {
   VehicleMediaEntity,
@@ -79,6 +81,8 @@ export class SalesWorkspaceService {
     private readonly accessService: AccessService,
     private readonly salesPipelineService: SalesPipelineService,
     private readonly followUpAutomationService: SalesFollowUpAutomationService,
+    private readonly whatsAppIntegrationService: WhatsAppIntegrationService,
+    private readonly whatsAppOutboundService: WhatsAppOutboundService,
   ) {}
 
   async getWorkspace(tenantId: number): Promise<SalesWorkspaceSnapshotDto> {
@@ -159,6 +163,8 @@ export class SalesWorkspaceService {
     const overdueFollowUpsCount = activitiesAfterAutomation.filter(
       (activity) => activity.status === FollowUpStatus.Overdue,
     ).length;
+    const whatsappIntegration =
+      await this.whatsAppIntegrationService.getByTenantId(tenantId);
     const metrics = computeSalesWorkspaceDashboardMetrics({
       leads: leads.map((lead) => ({
         id: lead.id,
@@ -194,6 +200,13 @@ export class SalesWorkspaceService {
 
     return {
       metrics,
+      whatsapp: {
+        connected: Boolean(
+          whatsappIntegration?.isEnabled && whatsappIntegration?.hasAccessToken,
+        ),
+        phoneNumberId: whatsappIntegration?.phoneNumberId ?? null,
+        displayPhoneNumber: whatsappIntegration?.displayPhoneNumber ?? null,
+      },
       tenants: [
         {
           id: String(tenant.id),
@@ -356,6 +369,11 @@ export class SalesWorkspaceService {
 
     const now = new Date();
     const preview = body.length > 500 ? `${body.slice(0, 497)}...` : body;
+    const delivery = await this.whatsAppOutboundService.sendTextMessage({
+      tenantId,
+      customerPhone: conversation.customerPhone,
+      body,
+    });
 
     await this.messageRepository.save(
       this.messageRepository.create({
@@ -364,6 +382,9 @@ export class SalesWorkspaceService {
         body,
         sentAt: now,
         isTemplate: dto.isTemplate ?? false,
+        whatsappMessageId: delivery.delivered
+          ? delivery.whatsappMessageId
+          : null,
       }),
     );
 
