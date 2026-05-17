@@ -29,6 +29,7 @@ export class SalesLeadCaptureService {
     const tenant = await this.getTenantOrThrow(tenantId);
     const apiBase = this.resolveApiBaseUrl();
     const token = tenant.websiteLeadCaptureToken;
+    const metaWebhookUrl = `${apiBase}/api/v1/webhooks/meta/lead-ads`;
 
     return {
       websiteWebhookUrl: `${apiBase}/api/v1/public/tenants/${tenant.slug}/leads`,
@@ -36,6 +37,7 @@ export class SalesLeadCaptureService {
       websiteConfigured: Boolean(token),
       metaPageId: tenant.metaPageId ?? null,
       metaLeadAdsConfigured: Boolean(tenant.metaPageId),
+      metaWebhookUrl,
     };
   }
 

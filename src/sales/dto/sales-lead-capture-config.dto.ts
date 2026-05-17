@@ -21,4 +21,9 @@ export class SalesLeadCaptureConfigDto {
 
   @ApiProperty({ example: false })
   metaLeadAdsConfigured: boolean;
+
+  @ApiProperty({
+    example: 'https://api.dealrstack.com/api/v1/webhooks/meta/lead-ads',
+  })
+  metaWebhookUrl: string;
 }

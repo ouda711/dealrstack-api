@@ -68,6 +68,10 @@ WHATSAPP_DEMO_TENANT_SLUG=nairobi-auto-hub
 WHATSAPP_DEMO_PHONE_NUMBER_ID=
 WHATSAPP_DEMO_ACCESS_TOKEN=
 
+# Meta Lead Ads (webhook: /api/v1/webhooks/meta/lead-ads — map tenant.metaPageId to Page ID)
+META_LEAD_ADS_VERIFY_TOKEN=
+META_PAGE_ACCESS_TOKEN=
+
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 

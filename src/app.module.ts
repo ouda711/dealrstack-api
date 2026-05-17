@@ -13,6 +13,7 @@ import googleConfig from './auth-google/config/google.config';
 import appleConfig from './auth-apple/config/apple.config';
 import aiConfig from './ai/config/ai.config';
 import whatsappConfig from './whatsapp/config/whatsapp.config';
+import metaLeadAdsConfig from './sales/config/meta-lead-ads.config';
 import path from 'path';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -70,6 +71,7 @@ const infrastructureDatabaseModule = (databaseConfig() as DatabaseConfig)
         appleConfig,
         aiConfig,
         whatsappConfig,
+        metaLeadAdsConfig,
       ],
       envFilePath: ['.env'],
     }),
