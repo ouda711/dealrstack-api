@@ -90,6 +90,28 @@ describe('Sales workspace smoke', () => {
       .expect(200);
   });
 
+  it('should accept a public website lead with capture token', async () => {
+    const config = await request(app)
+      .post(
+        `/api/v1/tenants/${tenantId}/sales-workspace/lead-capture/regenerate-website-token`,
+      )
+      .set(workspaceHeaders())
+      .expect(200);
+
+    const token = config.body.websiteTokenMasked as string;
+    const publicPhone = `+2547${(Date.now() + 1).toString().slice(-8)}`;
+
+    await request(app)
+      .post('/api/v1/public/tenants/nairobi-auto-hub/leads')
+      .set('X-Lead-Capture-Token', token)
+      .send({
+        customerName: 'Public Web Lead',
+        customerPhone: publicPhone,
+        interestSummary: 'Website webhook smoke',
+      })
+      .expect(201);
+  });
+
   it('should mark notifications read', async () => {
     const workspace = await request(app)
       .get(`/api/v1/tenants/${tenantId}/sales-workspace`)

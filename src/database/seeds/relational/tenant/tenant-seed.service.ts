@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { randomBytes } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { TenantEntity } from '../../../../tenants/infrastructure/persistence/relational/entities/tenant.entity';
@@ -46,6 +47,15 @@ export class TenantSeedService {
       if (!exists) {
         await this.repository.save(this.repository.create(tenant));
       }
+    }
+
+    const nairobi = await this.repository.findOne({
+      where: { slug: 'nairobi-auto-hub' },
+    });
+
+    if (nairobi && !nairobi.websiteLeadCaptureToken) {
+      nairobi.websiteLeadCaptureToken = randomBytes(24).toString('hex');
+      await this.repository.save(nairobi);
     }
   }
 }

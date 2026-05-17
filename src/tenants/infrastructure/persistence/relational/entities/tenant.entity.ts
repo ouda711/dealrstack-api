@@ -47,6 +47,12 @@ export class TenantEntity extends EntityRelationalHelper {
   @Column({ default: true })
   isActive: boolean;
 
+  @Column({ type: String, length: 64, nullable: true })
+  websiteLeadCaptureToken?: string | null;
+
+  @Column({ type: String, length: 32, nullable: true })
+  metaPageId?: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

@@ -37,6 +37,8 @@ import { ReorderSalesDealsDto } from './dto/reorder-sales-deals.dto';
 import { SendSalesConversationMessageDto } from './dto/send-sales-conversation-message.dto';
 import { UpdateSalesPipelineDealDto } from './dto/update-sales-pipeline-deal.dto';
 import { SalesWorkspaceSnapshotDto } from './domain/sales-workspace';
+import { SalesLeadCaptureConfigDto } from './dto/sales-lead-capture-config.dto';
+import { SalesLeadCaptureService } from './sales-lead-capture.service';
 import { SalesWorkspaceService } from './sales-workspace.service';
 
 @ApiBearerAuth()
@@ -47,7 +49,10 @@ import { SalesWorkspaceService } from './sales-workspace.service';
   version: '1',
 })
 export class SalesController {
-  constructor(private readonly salesWorkspaceService: SalesWorkspaceService) {}
+  constructor(
+    private readonly salesWorkspaceService: SalesWorkspaceService,
+    private readonly leadCaptureService: SalesLeadCaptureService,
+  ) {}
 
   @ApiOkResponse({ type: SalesWorkspaceSnapshotDto })
   @ApiOperation({
@@ -312,6 +317,24 @@ export class SalesController {
       Number(tenantId),
       Number(ruleId),
     );
+  }
+
+  @ApiOkResponse({ type: SalesLeadCaptureConfigDto })
+  @ApiOperation({ summary: 'Lead capture integration settings for the tenant' })
+  @Get('lead-capture')
+  @RequirePermissions('leads.manage')
+  @HttpCode(HttpStatus.OK)
+  getLeadCaptureConfig(@Param('tenantId') tenantId: number) {
+    return this.leadCaptureService.getConfig(Number(tenantId));
+  }
+
+  @ApiOkResponse({ type: SalesLeadCaptureConfigDto })
+  @ApiOperation({ summary: 'Regenerate the public website lead capture token' })
+  @Post('lead-capture/regenerate-website-token')
+  @RequirePermissions('leads.manage')
+  @HttpCode(HttpStatus.OK)
+  regenerateWebsiteLeadToken(@Param('tenantId') tenantId: number) {
+    return this.leadCaptureService.regenerateWebsiteToken(Number(tenantId));
   }
 
   @ApiOkResponse({ type: SalesWorkspaceSnapshotDto })
