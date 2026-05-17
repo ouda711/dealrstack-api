@@ -1,4 +1,4 @@
-import { MessageDirection } from './domain/sales.enums';
+import { LeadStatus, MessageDirection } from './domain/sales.enums';
 import { VehicleStatus } from '../vehicles/infrastructure/persistence/relational/entities/vehicle.entity';
 
 const TERMINAL_DEAL_STAGES = new Set(['sold', 'lost']);
@@ -6,6 +6,8 @@ const TERMINAL_DEAL_STAGES = new Set(['sold', 'lost']);
 export type DashboardMetricsLead = {
   id: number;
   source: string;
+  status: LeadStatus;
+  lostReason?: string | null;
   assignedUserId: number | null;
   createdAt: Date;
 };
@@ -40,6 +42,7 @@ export type SalesWorkspaceDashboardMetrics = {
   lostDealsCount: number;
   inventoryAgingDaysAvg: number;
   overdueFollowUpsCount: number;
+  lostLeadsByReason: { reason: string; count: number }[];
   staffPerformance: {
     staffId: string;
     name: string;
@@ -143,6 +146,17 @@ export function computeSalesWorkspaceDashboardMetrics(input: {
     sourceCounts.set(lead.source, (sourceCounts.get(lead.source) ?? 0) + 1);
   }
 
+  const lostReasonCounts = new Map<string, number>();
+
+  for (const lead of input.leads) {
+    if (lead.status !== LeadStatus.Lost) {
+      continue;
+    }
+
+    const reason = lead.lostReason?.trim() || 'Unspecified';
+    lostReasonCounts.set(reason, (lostReasonCounts.get(reason) ?? 0) + 1);
+  }
+
   const openPipelineValueKes = input.deals
     .filter((deal) => !TERMINAL_DEAL_STAGES.has(deal.stageKey))
     .reduce((sum, deal) => sum + Number(deal.valueKes), 0);
@@ -199,6 +213,9 @@ export function computeSalesWorkspaceDashboardMetrics(input: {
     lostDealsCount,
     inventoryAgingDaysAvg: average(inventoryAgingDays),
     overdueFollowUpsCount: input.overdueFollowUpsCount,
+    lostLeadsByReason: [...lostReasonCounts.entries()]
+      .map(([reason, count]) => ({ reason, count }))
+      .sort((a, b) => b.count - a.count),
     staffPerformance: staffPerformance.sort(
       (a, b) => b.dealsWon - a.dealsWon || b.leadsAssigned - a.leadsAssigned,
     ),

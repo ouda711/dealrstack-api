@@ -85,6 +85,9 @@ export class SalesLeadEntity extends EntityRelationalHelper {
   @Column({ type: 'timestamptz' })
   lastActivityAt: Date;
 
+  @Column({ type: String, length: 255, nullable: true })
+  lostReason?: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

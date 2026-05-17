@@ -9,6 +9,7 @@ import { In, Repository } from 'typeorm';
 import { AccessService } from '../access/access.service';
 import { BranchesService } from '../branches/branches.service';
 import { SalesPipelineService } from '../sales-pipeline/sales-pipeline.service';
+import { SettingsService } from '../settings/settings.service';
 import { TenantsService } from '../tenants/tenants.service';
 import {
   FollowUpStatus,
@@ -20,8 +21,12 @@ import {
   SalesActivityType,
 } from './domain/sales.enums';
 import { AssignSalesLeadDto } from './dto/assign-sales-lead.dto';
+import { CreateDealFromLeadDto } from './dto/create-deal-from-lead.dto';
 import { CreateSalesLeadDto } from './dto/create-sales-lead.dto';
 import { ImportSalesLeadsCsvDto } from './dto/import-sales-leads-csv.dto';
+import { SalesConversationPresetsDto } from './dto/sales-conversation-presets.dto';
+import { UpdateSalesConversationDto } from './dto/update-sales-conversation.dto';
+import { UpdateSalesLeadDto } from './dto/update-sales-lead.dto';
 import { CreateSalesAssignmentRuleDto } from './dto/create-sales-assignment-rule.dto';
 import { UpdateSalesAssignmentRuleDto } from './dto/update-sales-assignment-rule.dto';
 import { CreateSalesFollowUpRuleDto } from './dto/create-sales-follow-up-rule.dto';
@@ -59,6 +64,19 @@ import {
   VehicleMediaKind,
 } from '../vehicles/infrastructure/persistence/relational/entities/vehicle-media.entity';
 
+const DEFAULT_CONVERSATION_PRESETS: SalesConversationPresetsDto = {
+  quickReplies: [
+    'Karibu! How can we help you today?',
+    'Yes, the vehicle is still available.',
+    'Would you like to book a test drive?',
+  ],
+  templates: [
+    'Availability + price',
+    'Financing options',
+    'Trade-in valuation',
+  ],
+};
+
 @Injectable()
 export class SalesWorkspaceService {
   constructor(
@@ -91,7 +109,12 @@ export class SalesWorkspaceService {
     private readonly leadEscalationService: SalesLeadEscalationService,
     private readonly whatsAppIntegrationService: WhatsAppIntegrationService,
     private readonly whatsAppOutboundService: WhatsAppOutboundService,
+    private readonly settingsService: SettingsService,
   ) {}
+
+  private conversationPresetsKey(tenantId: number) {
+    return `sales_conversation_presets:tenant:${tenantId}`;
+  }
 
   async getWorkspace(tenantId: number): Promise<SalesWorkspaceSnapshotDto> {
     const tenant = await this.getTenantOrThrow(tenantId);
@@ -187,6 +210,8 @@ export class SalesWorkspaceService {
       leads: leadsAfterAssignment.map((lead) => ({
         id: lead.id,
         source: lead.source,
+        status: lead.status,
+        lostReason: lead.lostReason ?? null,
         assignedUserId: lead.assignedUserId ?? null,
         createdAt: lead.createdAt,
       })),
@@ -259,6 +284,7 @@ export class SalesWorkspaceService {
         unread: lead.unread,
         slaDueAt: lead.slaDueAt.toISOString(),
         lastActivityAt: lead.lastActivityAt.toISOString(),
+        lostReason: lead.lostReason ?? null,
         createdAt: lead.createdAt.toISOString(),
         conversationId: conversationIdByLeadId.has(lead.id)
           ? String(conversationIdByLeadId.get(lead.id))
@@ -420,6 +446,159 @@ export class SalesWorkspaceService {
       { tenantId, leadId: lead.id },
       { lastActivityAt: now, inactiveDays: 0 },
     );
+
+    return this.getWorkspace(tenantId);
+  }
+
+  async updateConversation(
+    tenantId: number,
+    conversationId: number,
+    dto: UpdateSalesConversationDto,
+  ) {
+    const conversation = await this.conversationRepository.findOne({
+      where: { id: conversationId, tenantId },
+    });
+
+    if (!conversation) {
+      throw new NotFoundException({
+        status: HttpStatus.NOT_FOUND,
+        error: 'conversationNotFound',
+      });
+    }
+
+    if (dto.internalNotes !== undefined) {
+      conversation.internalNotes = dto.internalNotes?.trim() || null;
+      await this.conversationRepository.save(conversation);
+    }
+
+    return this.getWorkspace(tenantId);
+  }
+
+  async getConversationPresets(
+    tenantId: number,
+  ): Promise<SalesConversationPresetsDto> {
+    await this.getTenantOrThrow(tenantId);
+    const stored =
+      await this.settingsService.getCachedJson<SalesConversationPresetsDto>(
+        this.conversationPresetsKey(tenantId),
+      );
+
+    return stored ?? DEFAULT_CONVERSATION_PRESETS;
+  }
+
+  async updateConversationPresets(
+    tenantId: number,
+    dto: SalesConversationPresetsDto,
+  ): Promise<SalesConversationPresetsDto> {
+    await this.getTenantOrThrow(tenantId);
+    await this.settingsService.upsertValue(
+      this.conversationPresetsKey(tenantId),
+      dto as unknown as Record<string, unknown>,
+    );
+    this.settingsService.invalidateCache(this.conversationPresetsKey(tenantId));
+
+    return dto;
+  }
+
+  async createDealFromLead(
+    tenantId: number,
+    leadId: number,
+    dto: CreateDealFromLeadDto,
+    requestingUserId?: number,
+  ) {
+    const lead = await this.getLeadOrThrow(tenantId, leadId);
+    const existingDeal = await this.dealRepository.findOne({
+      where: { tenantId, leadId },
+    });
+
+    if (existingDeal) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        error: 'leadAlreadyHasDeal',
+      });
+    }
+
+    const stageKey = dto.stageKey ?? 'new_lead';
+    const pipeline = await this.salesPipelineService.getPipeline(tenantId);
+    this.salesPipelineService.assertStageKeyExists(pipeline, stageKey);
+
+    const memberships =
+      await this.accessService.findTenantMemberships(tenantId);
+    const now = new Date();
+    const slaDueAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const assignedUserId =
+      lead.assignedUserId ??
+      requestingUserId ??
+      memberships.find((membership) => membership.user?.id)?.user?.id;
+
+    if (!assignedUserId) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        error: 'assignedUserRequired',
+      });
+    }
+
+    if (!lead.assignedUserId) {
+      lead.assignedUserId = assignedUserId;
+      lead.assignmentReason = 'Deal created from lead inbox';
+      lead.lastActivityAt = now;
+      await this.leadRepository.save(lead);
+    }
+
+    const stageDeals = await this.dealRepository.find({
+      where: { tenantId, stageKey },
+    });
+    const title = dto.title?.trim() || lead.interestSummary;
+
+    const deal = await this.dealRepository.save(
+      this.dealRepository.create({
+        tenantId,
+        branchId: lead.branchId,
+        leadId: lead.id,
+        stageKey,
+        title,
+        imageUrl: null,
+        valueKes: '0',
+        assignedUserId,
+        assignmentReason:
+          lead.assignmentReason ?? 'Deal created from lead inbox',
+        lastActivityAt: now,
+        inactiveDays: 0,
+        boardSortOrder: stageDeals.length,
+        slaDueAt,
+      }),
+    );
+
+    await this.notificationRepository.save(
+      this.notificationRepository.create({
+        tenantId,
+        kind: NotificationKind.NewLead,
+        title: 'Lead added to pipeline',
+        body: `${lead.customerName} — ${title}`,
+        leadId: lead.id,
+        dealId: deal.id,
+        read: false,
+      }),
+    );
+
+    return this.getWorkspace(tenantId);
+  }
+
+  async updateLead(tenantId: number, leadId: number, dto: UpdateSalesLeadDto) {
+    const lead = await this.getLeadOrThrow(tenantId, leadId);
+
+    if (dto.status) {
+      lead.status = dto.status;
+    }
+
+    if (dto.status === LeadStatus.Lost) {
+      lead.lostReason = dto.lostReason?.trim() || null;
+    } else if (dto.lostReason !== undefined) {
+      lead.lostReason = dto.lostReason?.trim() || null;
+    }
+
+    lead.lastActivityAt = new Date();
+    await this.leadRepository.save(lead);
 
     return this.getWorkspace(tenantId);
   }

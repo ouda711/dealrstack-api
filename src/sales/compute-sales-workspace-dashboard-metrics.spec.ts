@@ -1,4 +1,4 @@
-import { MessageDirection } from './domain/sales.enums';
+import { LeadStatus, MessageDirection } from './domain/sales.enums';
 import {
   computeSalesWorkspaceDashboardMetrics,
   leadResponseMinutes,
@@ -11,6 +11,7 @@ describe('computeSalesWorkspaceDashboardMetrics', () => {
         {
           id: 1,
           source: 'whatsapp',
+          status: LeadStatus.New,
           assignedUserId: 10,
           createdAt: new Date('2026-01-01'),
         },
@@ -38,6 +39,7 @@ describe('computeSalesWorkspaceDashboardMetrics', () => {
     const lead = {
       id: 1,
       source: 'whatsapp',
+      status: LeadStatus.New,
       assignedUserId: 10,
       createdAt: new Date('2026-01-01T10:00:00Z'),
     };

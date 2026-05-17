@@ -103,6 +103,9 @@ export class SalesWorkspaceLeadDto {
   @ApiProperty()
   lastActivityAt: string;
 
+  @ApiPropertyOptional()
+  lostReason?: string | null;
+
   @ApiProperty()
   createdAt: string;
 
@@ -375,6 +378,18 @@ export class SalesWorkspaceDashboardMetricsDto {
 
   @ApiProperty()
   overdueFollowUpsCount: number;
+
+  @ApiProperty({
+    type: 'array',
+    items: {
+      type: 'object',
+      properties: {
+        reason: { type: 'string' },
+        count: { type: 'number' },
+      },
+    },
+  })
+  lostLeadsByReason: { reason: string; count: number }[];
 
   @ApiProperty({
     type: 'array',

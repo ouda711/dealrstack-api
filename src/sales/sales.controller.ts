@@ -34,7 +34,11 @@ import { CreateSalesDealActivityDto } from './dto/create-sales-deal-activity.dto
 import { CreateSalesPipelineDealDto } from './dto/create-sales-pipeline-deal.dto';
 import { MoveSalesDealStageDto } from './dto/move-sales-deal-stage.dto';
 import { ReorderSalesDealsDto } from './dto/reorder-sales-deals.dto';
+import { CreateDealFromLeadDto } from './dto/create-deal-from-lead.dto';
+import { SalesConversationPresetsDto } from './dto/sales-conversation-presets.dto';
 import { SendSalesConversationMessageDto } from './dto/send-sales-conversation-message.dto';
+import { UpdateSalesConversationDto } from './dto/update-sales-conversation.dto';
+import { UpdateSalesLeadDto } from './dto/update-sales-lead.dto';
 import { UpdateSalesPipelineDealDto } from './dto/update-sales-pipeline-deal.dto';
 import { SalesWorkspaceSnapshotDto } from './domain/sales-workspace';
 import { SalesLeadCaptureConfigDto } from './dto/sales-lead-capture-config.dto';
@@ -170,6 +174,46 @@ export class SalesController {
   }
 
   @ApiOkResponse({ type: SalesWorkspaceSnapshotDto })
+  @ApiOperation({ summary: 'Update conversation internal notes' })
+  @Patch('conversations/:conversationId')
+  @RequirePermissions('conversations.manage', 'leads.manage')
+  @HttpCode(HttpStatus.OK)
+  updateConversation(
+    @Param('tenantId') tenantId: number,
+    @Param('conversationId') conversationId: number,
+    @Body() dto: UpdateSalesConversationDto,
+  ) {
+    return this.salesWorkspaceService.updateConversation(
+      Number(tenantId),
+      Number(conversationId),
+      dto,
+    );
+  }
+
+  @ApiOkResponse({ type: SalesConversationPresetsDto })
+  @ApiOperation({ summary: 'Quick replies and templates for the tenant inbox' })
+  @Get('conversation-presets')
+  @RequirePermissions('conversations.manage', 'leads.manage')
+  @HttpCode(HttpStatus.OK)
+  getConversationPresets(@Param('tenantId') tenantId: number) {
+    return this.salesWorkspaceService.getConversationPresets(Number(tenantId));
+  }
+
+  @ApiOkResponse({ type: SalesConversationPresetsDto })
+  @ApiOperation({ summary: 'Save quick replies and templates' })
+  @Put('conversation-presets')
+  @RequirePermissions('conversations.manage', 'leads.manage')
+  @HttpCode(HttpStatus.OK)
+  updateConversationPresets(
+    @Param('tenantId') tenantId: number,
+    @Body() dto: SalesConversationPresetsDto,
+  ) {
+    return this.salesWorkspaceService.updateConversationPresets(
+      Number(tenantId),
+      dto,
+    );
+  }
+
   @ApiOkResponse({ type: SalesWorkspaceSnapshotDto })
   @ApiOperation({
     summary: 'Evaluate enabled follow-up rules for the tenant',
@@ -337,6 +381,21 @@ export class SalesController {
     return this.leadCaptureService.regenerateWebsiteToken(Number(tenantId));
   }
 
+  @ApiOkResponse({ type: SalesLeadCaptureConfigDto })
+  @ApiOperation({ summary: 'Set Meta page ID for Lead Ads webhook routing' })
+  @Patch('lead-capture/meta-page')
+  @RequirePermissions('leads.manage')
+  @HttpCode(HttpStatus.OK)
+  updateMetaPageId(
+    @Param('tenantId') tenantId: number,
+    @Body() body: { metaPageId?: string | null },
+  ) {
+    return this.leadCaptureService.updateMetaPageId(
+      Number(tenantId),
+      body.metaPageId ?? null,
+    );
+  }
+
   @ApiOkResponse({ type: SalesWorkspaceSnapshotDto })
   @ApiOperation({
     summary: 'Create a lead from website, social, phone, or manual capture',
@@ -349,6 +408,42 @@ export class SalesController {
     @Body() dto: CreateSalesLeadDto,
   ) {
     return this.salesWorkspaceService.createLead(Number(tenantId), dto);
+  }
+
+  @ApiOkResponse({ type: SalesWorkspaceSnapshotDto })
+  @ApiOperation({ summary: 'Create a pipeline deal from an existing lead' })
+  @Post('leads/:leadId/deals')
+  @RequirePermissions('pipeline.manage', 'leads.manage')
+  @HttpCode(HttpStatus.OK)
+  createDealFromLead(
+    @Param('tenantId') tenantId: number,
+    @Param('leadId') leadId: number,
+    @Body() dto: CreateDealFromLeadDto,
+    @Request() request: { user?: { id: number } },
+  ) {
+    return this.salesWorkspaceService.createDealFromLead(
+      Number(tenantId),
+      Number(leadId),
+      dto,
+      request.user?.id,
+    );
+  }
+
+  @ApiOkResponse({ type: SalesWorkspaceSnapshotDto })
+  @ApiOperation({ summary: 'Update lead status and lost reason' })
+  @Patch('leads/:leadId')
+  @RequirePermissions('leads.manage')
+  @HttpCode(HttpStatus.OK)
+  updateLead(
+    @Param('tenantId') tenantId: number,
+    @Param('leadId') leadId: number,
+    @Body() dto: UpdateSalesLeadDto,
+  ) {
+    return this.salesWorkspaceService.updateLead(
+      Number(tenantId),
+      Number(leadId),
+      dto,
+    );
   }
 
   @ApiOkResponse({ type: SalesWorkspaceSnapshotDto })
