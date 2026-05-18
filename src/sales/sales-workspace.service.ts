@@ -64,18 +64,7 @@ import {
   VehicleMediaKind,
 } from '../vehicles/infrastructure/persistence/relational/entities/vehicle-media.entity';
 
-const DEFAULT_CONVERSATION_PRESETS: SalesConversationPresetsDto = {
-  quickReplies: [
-    'Karibu! How can we help you today?',
-    'Yes, the vehicle is still available.',
-    'Would you like to book a test drive?',
-  ],
-  templates: [
-    'Availability + price',
-    'Financing options',
-    'Trade-in valuation',
-  ],
-};
+import { normalizeConversationPresets } from './conversation-presets.util';
 
 @Injectable()
 export class SalesWorkspaceService {
@@ -478,12 +467,11 @@ export class SalesWorkspaceService {
     tenantId: number,
   ): Promise<SalesConversationPresetsDto> {
     await this.getTenantOrThrow(tenantId);
-    const stored =
-      await this.settingsService.getCachedJson<SalesConversationPresetsDto>(
-        this.conversationPresetsKey(tenantId),
-      );
+    const stored = await this.settingsService.getCachedJson<unknown>(
+      this.conversationPresetsKey(tenantId),
+    );
 
-    return stored ?? DEFAULT_CONVERSATION_PRESETS;
+    return normalizeConversationPresets(stored);
   }
 
   async updateConversationPresets(
@@ -491,13 +479,14 @@ export class SalesWorkspaceService {
     dto: SalesConversationPresetsDto,
   ): Promise<SalesConversationPresetsDto> {
     await this.getTenantOrThrow(tenantId);
+    const normalized = normalizeConversationPresets(dto);
     await this.settingsService.upsertValue(
       this.conversationPresetsKey(tenantId),
-      dto as unknown as Record<string, unknown>,
+      normalized as unknown as Record<string, unknown>,
     );
     this.settingsService.invalidateCache(this.conversationPresetsKey(tenantId));
 
-    return dto;
+    return normalized;
   }
 
   async createDealFromLead(

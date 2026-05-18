@@ -17,14 +17,10 @@ import { SalesMessageEntity } from '../sales/infrastructure/persistence/relation
 import { SalesNotificationEntity } from '../sales/infrastructure/persistence/relational/entities/sales-notification.entity';
 import { TenantWhatsAppIntegrationEntity } from './infrastructure/persistence/relational/entities/tenant-whatsapp-integration.entity';
 import { phonesMatch, toDisplayPhone } from './utils/whatsapp-phone.util';
-
-type InboundWhatsAppMessage = {
-  from: string;
-  id: string;
-  timestamp: string;
-  type: string;
-  text?: { body?: string };
-};
+import {
+  parseInboundWhatsAppContent,
+  type InboundWhatsAppMessage,
+} from '../sales/whatsapp-inbound-message.util';
 
 @Injectable()
 export class WhatsAppInboundService {
@@ -100,7 +96,9 @@ export class WhatsAppInboundService {
     message: InboundWhatsAppMessage;
     contactName?: string;
   }) {
-    if (input.message.type !== 'text' || !input.message.text?.body?.trim()) {
+    const parsed = parseInboundWhatsAppContent(input.message);
+
+    if (!parsed) {
       return;
     }
 
@@ -125,7 +123,7 @@ export class WhatsAppInboundService {
 
     const tenantId = integration.tenantId;
     const customerPhone = toDisplayPhone(input.message.from);
-    const body = input.message.text.body.trim();
+    const body = parsed.body;
     const sentAt = new Date(Number(input.message.timestamp) * 1000);
     const now = new Date();
 
@@ -151,6 +149,7 @@ export class WhatsAppInboundService {
         sentAt,
         whatsappMessageId: input.message.id,
         isTemplate: false,
+        mediaType: parsed.mediaType,
       }),
     );
 
