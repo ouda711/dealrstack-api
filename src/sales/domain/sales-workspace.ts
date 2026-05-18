@@ -294,6 +294,16 @@ export class SalesWorkspaceNotificationDto {
   createdAt: string;
 }
 
+export class MarkSalesNotificationReadResultDto {
+  @ApiProperty({ type: SalesWorkspaceNotificationDto })
+  notification: SalesWorkspaceNotificationDto;
+}
+
+export class MarkAllSalesNotificationsReadResultDto {
+  @ApiProperty({ example: true })
+  markedAll: true;
+}
+
 export class SalesWorkspaceAssignmentRuleDto {
   @ApiProperty()
   id: string;

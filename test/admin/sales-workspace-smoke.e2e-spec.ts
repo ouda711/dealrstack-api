@@ -133,10 +133,8 @@ describe('Sales workspace smoke', () => {
       .set(workspaceHeaders())
       .expect(200)
       .then(({ body }) => {
-        const updated = body.notifications.find(
-          (notification: { id: number }) => notification.id === unread.id,
-        );
-        expect(updated?.read).toBe(true);
+        expect(body.notification.id).toBe(String(unread.id));
+        expect(body.notification.read).toBe(true);
       });
   });
 });

@@ -44,7 +44,11 @@ import { SendSalesConversationMessageDto } from './dto/send-sales-conversation-m
 import { UpdateSalesConversationDto } from './dto/update-sales-conversation.dto';
 import { UpdateSalesLeadDto } from './dto/update-sales-lead.dto';
 import { UpdateSalesPipelineDealDto } from './dto/update-sales-pipeline-deal.dto';
-import { SalesWorkspaceSnapshotDto } from './domain/sales-workspace';
+import {
+  MarkAllSalesNotificationsReadResultDto,
+  MarkSalesNotificationReadResultDto,
+  SalesWorkspaceSnapshotDto,
+} from './domain/sales-workspace';
 import { SalesLeadCaptureConfigDto } from './dto/sales-lead-capture-config.dto';
 import { SalesLeadCaptureService } from './sales-lead-capture.service';
 import { SalesNotificationDeliveryConfigDto } from './dto/sales-notification-delivery-config.dto';
@@ -628,7 +632,7 @@ export class SalesController {
     req.on('aborted', cleanup);
   }
 
-  @ApiOkResponse({ type: SalesWorkspaceSnapshotDto })
+  @ApiOkResponse({ type: MarkSalesNotificationReadResultDto })
   @Patch('notifications/:notificationId/read')
   @RequirePermissions('leads.manage', 'conversations.manage')
   @HttpCode(HttpStatus.OK)
@@ -642,7 +646,7 @@ export class SalesController {
     );
   }
 
-  @ApiOkResponse({ type: SalesWorkspaceSnapshotDto })
+  @ApiOkResponse({ type: MarkAllSalesNotificationsReadResultDto })
   @Post('notifications/read-all')
   @RequirePermissions('leads.manage', 'conversations.manage')
   @HttpCode(HttpStatus.OK)

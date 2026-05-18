@@ -75,6 +75,7 @@ DealrStack is a dealership sales operating system, not a dealership ERP. Avoid b
 - [x] Add in-app notifications for new leads, customer replies, missed follow-ups, and reassignment.
 - [x] Auto-create deposit and appointment notifications when deals enter deposit/test-drive stages.
 - [x] Email and browser push delivery channels (tenant preferences + push subscriptions; requires mail + VAPID env).
+- [x] Live in-app updates via SSE (`GET .../notifications/stream`; frontend patches bell without full workspace reload).
 
 ### 9. Analytics
 
@@ -106,4 +107,5 @@ These remain out of scope (unchecked = not started, by design):
 
 - Run pending migrations after pull: `npm run migration:run`
 - Sales workspace smoke test: `npm run smoke:sales-workspace`
-- Optional push: set `WEB_PUSH_VAPID_PUBLIC_KEY` / `WEB_PUSH_VAPID_PRIVATE_KEY` in `.env`
+- Optional push: set `WEB_PUSH_VAPID_PUBLIC_KEY` / `WEB_PUSH_VAPID_PRIVATE_KEY` / `WEB_PUSH_VAPID_SUBJECT` in `.env` (`npx web-push generate-vapid-keys`)
+- Multi-instance SSE: in-memory pub/sub today; use Redis when running multiple API replicas

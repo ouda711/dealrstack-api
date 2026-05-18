@@ -38,7 +38,11 @@ import { ReorderSalesDealsDto } from './dto/reorder-sales-deals.dto';
 import { CreateSalesDealActivityDto } from './dto/create-sales-deal-activity.dto';
 import { SendSalesConversationMessageDto } from './dto/send-sales-conversation-message.dto';
 import { UpdateSalesPipelineDealDto } from './dto/update-sales-pipeline-deal.dto';
-import { SalesWorkspaceSnapshotDto } from './domain/sales-workspace';
+import {
+  MarkAllSalesNotificationsReadResultDto,
+  MarkSalesNotificationReadResultDto,
+  SalesWorkspaceSnapshotDto,
+} from './domain/sales-workspace';
 import { SalesActivityEntity } from './infrastructure/persistence/relational/entities/sales-activity.entity';
 import { SalesAssignmentRuleEntity } from './infrastructure/persistence/relational/entities/sales-assignment-rule.entity';
 import { SalesConversationEntity } from './infrastructure/persistence/relational/entities/sales-conversation.entity';
@@ -1288,7 +1292,10 @@ export class SalesWorkspaceService {
     return this.getWorkspace(tenantId);
   }
 
-  async markNotificationRead(tenantId: number, notificationId: number) {
+  async markNotificationRead(
+    tenantId: number,
+    notificationId: number,
+  ): Promise<MarkSalesNotificationReadResultDto> {
     const notification = await this.notificationRepository.findOne({
       where: { id: notificationId, tenantId },
     });
@@ -1306,16 +1313,20 @@ export class SalesWorkspaceService {
       tenantId,
       notification.id,
     );
-    return this.getWorkspace(tenantId);
+    return {
+      notification: mapSalesNotificationToWorkspaceDto(notification),
+    };
   }
 
-  async markAllNotificationsRead(tenantId: number) {
+  async markAllNotificationsRead(
+    tenantId: number,
+  ): Promise<MarkAllSalesNotificationsReadResultDto> {
     await this.notificationRepository.update(
       { tenantId, read: false },
       { read: true },
     );
     this.notificationStreamService.publishAllNotificationsRead(tenantId);
-    return this.getWorkspace(tenantId);
+    return { markedAll: true };
   }
 
   private async loadPrimaryVehicleImages(vehicleIds: number[]) {
