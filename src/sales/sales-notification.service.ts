@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { NotificationKind } from './domain/sales.enums';
 import { SalesNotificationEntity } from './infrastructure/persistence/relational/entities/sales-notification.entity';
 import { SalesNotificationDispatchService } from './sales-notification-dispatch.service';
+import { SalesNotificationStreamService } from './sales-notification-stream.service';
 
 export type CreateSalesNotificationInput = {
   tenantId: number;
@@ -22,6 +23,7 @@ export class SalesNotificationService {
     @InjectRepository(SalesNotificationEntity)
     private readonly notificationRepository: Repository<SalesNotificationEntity>,
     private readonly dispatchService: SalesNotificationDispatchService,
+    private readonly streamService: SalesNotificationStreamService,
   ) {}
 
   async create(
@@ -40,6 +42,7 @@ export class SalesNotificationService {
       }),
     );
 
+    this.streamService.publishNotification(notification);
     void this.dispatchService.dispatch(notification).catch(() => undefined);
 
     return notification;

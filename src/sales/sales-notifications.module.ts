@@ -8,6 +8,7 @@ import webPushConfig from './config/web-push.config';
 import { RelationalSalesPersistenceModule } from './infrastructure/persistence/relational/relational-persistence.module';
 import { SalesNotificationDeliveryService } from './sales-notification-delivery.service';
 import { SalesNotificationDispatchService } from './sales-notification-dispatch.service';
+import { SalesNotificationStreamService } from './sales-notification-stream.service';
 import { SalesNotificationService } from './sales-notification.service';
 
 @Module({
@@ -21,12 +22,14 @@ import { SalesNotificationService } from './sales-notification.service';
   ],
   providers: [
     SalesNotificationDispatchService,
+    SalesNotificationStreamService,
     SalesNotificationService,
     SalesNotificationDeliveryService,
   ],
   exports: [
     SalesNotificationService,
     SalesNotificationDeliveryService,
+    SalesNotificationStreamService,
     SalesNotificationDispatchService,
   ],
 })

@@ -9,7 +9,9 @@ import {
   Patch,
   Post,
   Put,
+  Req,
   Request,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -17,8 +19,10 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiParam,
+  ApiProduces,
   ApiTags,
 } from '@nestjs/swagger';
+import type { Request as ExpressRequest, Response } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { RequirePermissions } from '../access/permissions.decorator';
 import { PermissionsGuard } from '../access/permissions.guard';
@@ -47,6 +51,7 @@ import { SalesNotificationDeliveryConfigDto } from './dto/sales-notification-del
 import { SalesNotificationDeliveryService } from './sales-notification-delivery.service';
 import { UpdateSalesNotificationDeliveryDto } from './dto/update-sales-notification-delivery.dto';
 import { UpsertSalesPushSubscriptionDto } from './dto/upsert-sales-push-subscription.dto';
+import { SalesNotificationStreamService } from './sales-notification-stream.service';
 import { SalesWorkspaceService } from './sales-workspace.service';
 
 @ApiBearerAuth()
@@ -61,6 +66,7 @@ export class SalesController {
     private readonly salesWorkspaceService: SalesWorkspaceService,
     private readonly leadCaptureService: SalesLeadCaptureService,
     private readonly notificationDeliveryService: SalesNotificationDeliveryService,
+    private readonly notificationStreamService: SalesNotificationStreamService,
   ) {}
 
   @ApiOkResponse({ type: SalesWorkspaceSnapshotDto })
@@ -564,6 +570,62 @@ export class SalesController {
       Number(request.user?.id),
       body.endpoint,
     );
+  }
+
+  @ApiProduces('text/event-stream')
+  @ApiOperation({
+    summary: 'Stream sales workspace notifications (SSE)',
+    description:
+      'Live tenant notification feed. JSON objects in SSE `data` lines: `{type:"connected",unreadCount}`, `{type:"notification",notification}`, `{type:"notification_read",id}`, `{type:"notifications_read_all"}`, `{type:"unread_count",count}`, `{type:"heartbeat"}`.',
+  })
+  @Get('notifications/stream')
+  @RequirePermissions('leads.manage', 'conversations.manage', 'reports.view')
+  @HttpCode(HttpStatus.OK)
+  @ApiParam({ name: 'tenantId', type: Number, required: true })
+  async streamNotifications(
+    @Param('tenantId') tenantId: number,
+    @Res({ passthrough: false }) res: Response,
+    @Req() req: ExpressRequest,
+  ): Promise<void> {
+    const tid = Number(tenantId);
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+
+    const writeEvent = (payload: Record<string, unknown>) => {
+      res.write(`data: ${JSON.stringify(payload)}\n\n`);
+    };
+
+    const unreadCount =
+      await this.notificationStreamService.getUnreadCount(tid);
+    writeEvent({ type: 'connected', unreadCount });
+
+    const subscription = this.notificationStreamService
+      .subscribe(tid)
+      .subscribe((event) => {
+        if (event.type === 'heartbeat') {
+          return;
+        }
+
+        writeEvent(event as unknown as Record<string, unknown>);
+      });
+
+    const heartbeat = setInterval(() => {
+      writeEvent({ type: 'heartbeat' });
+    }, 25_000);
+
+    const cleanup = () => {
+      clearInterval(heartbeat);
+      subscription.unsubscribe();
+
+      if (!res.writableEnded) {
+        res.end();
+      }
+    };
+
+    req.on('close', cleanup);
+    req.on('aborted', cleanup);
   }
 
   @ApiOkResponse({ type: SalesWorkspaceSnapshotDto })

@@ -60,7 +60,9 @@ import { phonesMatch } from '../whatsapp/utils/whatsapp-phone.util';
 import { appendListingToInterest } from './append-listing-to-interest.util';
 import { resolvePipelineStageNotification } from './pipeline-stage-notification.util';
 import { leadSourceLabel, parseSalesLeadsCsv } from './parse-sales-leads-csv';
+import { mapSalesNotificationToWorkspaceDto } from './map-sales-notification-to-workspace.dto';
 import { SalesNotificationService } from './sales-notification.service';
+import { SalesNotificationStreamService } from './sales-notification-stream.service';
 import { VehicleEntity } from '../vehicles/infrastructure/persistence/relational/entities/vehicle.entity';
 import {
   VehicleMediaEntity,
@@ -103,6 +105,7 @@ export class SalesWorkspaceService {
     private readonly whatsAppOutboundService: WhatsAppOutboundService,
     private readonly settingsService: SettingsService,
     private readonly salesNotificationService: SalesNotificationService,
+    private readonly notificationStreamService: SalesNotificationStreamService,
   ) {}
 
   private conversationPresetsKey(tenantId: number) {
@@ -348,17 +351,9 @@ export class SalesWorkspaceService {
         automated: activity.automated,
         createdAt: activity.createdAt.toISOString(),
       })),
-      notifications: notificationsAfterAutomation.map((notification) => ({
-        id: String(notification.id),
-        tenantId: String(notification.tenantId),
-        kind: notification.kind,
-        title: notification.title,
-        body: notification.body,
-        leadId: notification.leadId ? String(notification.leadId) : null,
-        dealId: notification.dealId ? String(notification.dealId) : null,
-        read: notification.read,
-        createdAt: notification.createdAt.toISOString(),
-      })),
+      notifications: notificationsAfterAutomation.map(
+        mapSalesNotificationToWorkspaceDto,
+      ),
       assignmentRules: assignmentRules.map((rule) => ({
         id: String(rule.id),
         tenantId: String(rule.tenantId),
@@ -987,7 +982,6 @@ export class SalesWorkspaceService {
       dealId: deal.id,
     });
 
-    const pipeline = await this.salesPipelineService.getPipeline(tenantId);
     await this.notifyDealEnteredStage(
       tenantId,
       deal,
@@ -1308,6 +1302,10 @@ export class SalesWorkspaceService {
 
     notification.read = true;
     await this.notificationRepository.save(notification);
+    this.notificationStreamService.publishNotificationRead(
+      tenantId,
+      notification.id,
+    );
     return this.getWorkspace(tenantId);
   }
 
@@ -1316,6 +1314,7 @@ export class SalesWorkspaceService {
       { tenantId, read: false },
       { read: true },
     );
+    this.notificationStreamService.publishAllNotificationsRead(tenantId);
     return this.getWorkspace(tenantId);
   }
 
