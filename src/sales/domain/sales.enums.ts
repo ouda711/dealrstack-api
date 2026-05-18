@@ -65,3 +65,17 @@ export enum MessageDirection {
   Inbound = 'inbound',
   Outbound = 'outbound',
 }
+
+export enum SalesAppointmentType {
+  TestDrive = 'test_drive',
+  Visit = 'visit',
+  Call = 'call',
+  Other = 'other',
+}
+
+export enum SalesAppointmentStatus {
+  Scheduled = 'scheduled',
+  Completed = 'completed',
+  Cancelled = 'cancelled',
+  NoShow = 'no_show',
+}

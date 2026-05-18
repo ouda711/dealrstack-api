@@ -36,7 +36,7 @@ export function resolvePipelineStageNotification(input: {
   return null;
 }
 
-function matchesTestDriveStage(stageKey: string): boolean {
+export function matchesTestDriveStage(stageKey: string): boolean {
   return (
     stageKey === 'test_drive' ||
     stageKey.includes('test_drive') ||

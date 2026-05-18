@@ -112,6 +112,34 @@ describe('Sales workspace smoke', () => {
       .expect(201);
   });
 
+  it('should schedule a sales appointment', async () => {
+    const workspace = await request(app)
+      .get(`/api/v1/tenants/${tenantId}/sales-workspace`)
+      .set(workspaceHeaders())
+      .expect(200);
+
+    const lead = workspace.body.leads[0];
+
+    expect(lead).toBeDefined();
+
+    await request(app)
+      .post(`/api/v1/tenants/${tenantId}/sales-workspace/appointments`)
+      .set(workspaceHeaders())
+      .send({
+        leadId: Number(lead.id),
+        type: 'test_drive',
+        scheduledAt: new Date(Date.now() + 86_400_000).toISOString(),
+        durationMinutes: 60,
+        notes: 'Smoke test appointment',
+      })
+      .expect(200)
+      .then(({ body }) => {
+        expect(body.appointment.leadId).toBe(String(lead.id));
+        expect(body.appointment.type).toBe('test_drive');
+        expect(body.appointment.status).toBe('scheduled');
+      });
+  });
+
   it('should mark notifications read', async () => {
     const workspace = await request(app)
       .get(`/api/v1/tenants/${tenantId}/sales-workspace`)

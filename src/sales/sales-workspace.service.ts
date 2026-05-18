@@ -19,6 +19,8 @@ import {
   MessageDirection,
   NotificationKind,
   SalesActivityType,
+  SalesAppointmentStatus,
+  SalesAppointmentType,
 } from './domain/sales.enums';
 import { AssignSalesLeadDto } from './dto/assign-sales-lead.dto';
 import { CreateDealFromLeadDto } from './dto/create-deal-from-lead.dto';
@@ -62,7 +64,15 @@ import { WhatsAppIntegrationService } from '../whatsapp/whatsapp-integration.ser
 import { WhatsAppOutboundService } from '../whatsapp/whatsapp-outbound.service';
 import { phonesMatch } from '../whatsapp/utils/whatsapp-phone.util';
 import { appendListingToInterest } from './append-listing-to-interest.util';
-import { resolvePipelineStageNotification } from './pipeline-stage-notification.util';
+import { CreateSalesAppointmentDto } from './dto/create-sales-appointment.dto';
+import { UpdateSalesAppointmentDto } from './dto/update-sales-appointment.dto';
+import { mapSalesAppointmentToWorkspaceDto } from './map-sales-appointment-to-workspace.dto';
+import {
+  matchesTestDriveStage,
+  resolvePipelineStageNotification,
+} from './pipeline-stage-notification.util';
+import { SalesAppointmentEntity } from './infrastructure/persistence/relational/entities/sales-appointment.entity';
+import { SalesAppointmentMutationResultDto } from './domain/sales-workspace';
 import { leadSourceLabel, parseSalesLeadsCsv } from './parse-sales-leads-csv';
 import { mapSalesNotificationToWorkspaceDto } from './map-sales-notification-to-workspace.dto';
 import { SalesNotificationService } from './sales-notification.service';
@@ -90,6 +100,8 @@ export class SalesWorkspaceService {
     private readonly activityRepository: Repository<SalesActivityEntity>,
     @InjectRepository(SalesNotificationEntity)
     private readonly notificationRepository: Repository<SalesNotificationEntity>,
+    @InjectRepository(SalesAppointmentEntity)
+    private readonly appointmentRepository: Repository<SalesAppointmentEntity>,
     @InjectRepository(SalesAssignmentRuleEntity)
     private readonly assignmentRuleRepository: Repository<SalesAssignmentRuleEntity>,
     @InjectRepository(SalesFollowUpRuleEntity)
@@ -179,6 +191,10 @@ export class SalesWorkspaceService {
         order: { createdAt: 'DESC' },
       },
     );
+    const appointments = await this.appointmentRepository.find({
+      where: { tenantId },
+      order: { scheduledAt: 'ASC' },
+    });
 
     const conversationIdByLeadId = new Map(
       conversations.map((c) => [c.leadId, c.id]),
@@ -375,6 +391,7 @@ export class SalesWorkspaceService {
         delayMinutes: rule.delayMinutes,
         enabled: rule.enabled,
       })),
+      appointments: appointments.map(mapSalesAppointmentToWorkspaceDto),
     };
   }
 
@@ -1327,6 +1344,197 @@ export class SalesWorkspaceService {
     );
     this.notificationStreamService.publishAllNotificationsRead(tenantId);
     return { markedAll: true };
+  }
+
+  async createAppointment(
+    tenantId: number,
+    dto: CreateSalesAppointmentDto,
+  ): Promise<SalesAppointmentMutationResultDto> {
+    await this.getTenantOrThrow(tenantId);
+    const lead = await this.getLeadOrThrow(tenantId, dto.leadId);
+
+    let deal: SalesDealEntity | null = null;
+
+    if (dto.dealId) {
+      deal = await this.getDealOrThrow(tenantId, dto.dealId);
+
+      if (deal.leadId !== lead.id) {
+        throw new UnprocessableEntityException({
+          status: HttpStatus.UNPROCESSABLE_ENTITY,
+          error: 'appointmentDealLeadMismatch',
+        });
+      }
+    }
+
+    const scheduledAt = new Date(dto.scheduledAt);
+
+    if (Number.isNaN(scheduledAt.getTime())) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        error: 'appointmentScheduledAtInvalid',
+      });
+    }
+
+    const vehicleId =
+      dto.vehicleId !== undefined
+        ? await this.resolveLeadVehicleId(tenantId, dto.vehicleId)
+        : lead.vehicleId;
+
+    const appointment = await this.appointmentRepository.save(
+      this.appointmentRepository.create({
+        tenantId,
+        leadId: lead.id,
+        dealId: deal?.id ?? null,
+        vehicleId: vehicleId ?? null,
+        assignedUserId: dto.assignedUserId ?? lead.assignedUserId ?? null,
+        type: dto.type,
+        status: SalesAppointmentStatus.Scheduled,
+        scheduledAt,
+        durationMinutes: dto.durationMinutes ?? 60,
+        location: dto.location?.trim() || null,
+        notes: dto.notes?.trim() || null,
+      }),
+    );
+
+    lead.lastActivityAt = new Date();
+    await this.leadRepository.save(lead);
+
+    if (
+      dto.moveToTestDriveStage &&
+      dto.type === SalesAppointmentType.TestDrive &&
+      deal
+    ) {
+      const pipeline = await this.salesPipelineService.getPipeline(tenantId);
+      const testDriveStage = pipeline.stages.find((stage) =>
+        matchesTestDriveStage(stage.stageKey.toLowerCase()),
+      );
+
+      if (testDriveStage && deal.stageKey !== testDriveStage.stageKey) {
+        deal.stageKey = testDriveStage.stageKey;
+        deal.lastActivityAt = new Date();
+        deal.inactiveDays = 0;
+        await this.dealRepository.save(deal);
+        await this.notifyDealEnteredStage(
+          tenantId,
+          deal,
+          lead,
+          testDriveStage.stageKey,
+          pipeline,
+        );
+      }
+    }
+
+    await this.salesNotificationService.create({
+      tenantId,
+      kind: NotificationKind.Appointment,
+      title: this.appointmentNotificationTitle(dto.type),
+      body: `${lead.customerName} — ${this.formatAppointmentSchedule(scheduledAt)}`,
+      leadId: lead.id,
+      dealId: deal?.id ?? null,
+    });
+
+    return { appointment: mapSalesAppointmentToWorkspaceDto(appointment) };
+  }
+
+  async updateAppointment(
+    tenantId: number,
+    appointmentId: number,
+    dto: UpdateSalesAppointmentDto,
+  ): Promise<SalesAppointmentMutationResultDto> {
+    const appointment = await this.getAppointmentOrThrow(
+      tenantId,
+      appointmentId,
+    );
+
+    if (dto.type !== undefined) {
+      appointment.type = dto.type;
+    }
+
+    if (dto.status !== undefined) {
+      appointment.status = dto.status;
+    }
+
+    if (dto.scheduledAt !== undefined) {
+      const scheduledAt = new Date(dto.scheduledAt);
+
+      if (Number.isNaN(scheduledAt.getTime())) {
+        throw new UnprocessableEntityException({
+          status: HttpStatus.UNPROCESSABLE_ENTITY,
+          error: 'appointmentScheduledAtInvalid',
+        });
+      }
+
+      appointment.scheduledAt = scheduledAt;
+    }
+
+    if (dto.assignedUserId !== undefined) {
+      appointment.assignedUserId = dto.assignedUserId;
+    }
+
+    if (dto.durationMinutes !== undefined) {
+      appointment.durationMinutes = dto.durationMinutes;
+    }
+
+    if (dto.location !== undefined) {
+      appointment.location = dto.location?.trim() || null;
+    }
+
+    if (dto.notes !== undefined) {
+      appointment.notes = dto.notes?.trim() || null;
+    }
+
+    await this.appointmentRepository.save(appointment);
+
+    return { appointment: mapSalesAppointmentToWorkspaceDto(appointment) };
+  }
+
+  async cancelAppointment(
+    tenantId: number,
+    appointmentId: number,
+  ): Promise<SalesAppointmentMutationResultDto> {
+    const appointment = await this.getAppointmentOrThrow(
+      tenantId,
+      appointmentId,
+    );
+    appointment.status = SalesAppointmentStatus.Cancelled;
+    await this.appointmentRepository.save(appointment);
+    return { appointment: mapSalesAppointmentToWorkspaceDto(appointment) };
+  }
+
+  private formatAppointmentSchedule(date: Date) {
+    return date.toLocaleString('en-KE', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+      timeZone: 'Africa/Nairobi',
+    });
+  }
+
+  private appointmentNotificationTitle(type: SalesAppointmentType) {
+    switch (type) {
+      case SalesAppointmentType.TestDrive:
+        return 'Test drive scheduled';
+      case SalesAppointmentType.Visit:
+        return 'Visit scheduled';
+      case SalesAppointmentType.Call:
+        return 'Call scheduled';
+      default:
+        return 'Appointment scheduled';
+    }
+  }
+
+  private async getAppointmentOrThrow(tenantId: number, appointmentId: number) {
+    const appointment = await this.appointmentRepository.findOne({
+      where: { id: appointmentId, tenantId },
+    });
+
+    if (!appointment) {
+      throw new NotFoundException({
+        status: HttpStatus.NOT_FOUND,
+        error: 'appointmentNotFound',
+      });
+    }
+
+    return appointment;
   }
 
   private async loadPrimaryVehicleImages(vehicleIds: number[]) {

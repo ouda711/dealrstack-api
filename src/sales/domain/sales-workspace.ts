@@ -294,6 +294,52 @@ export class SalesWorkspaceNotificationDto {
   createdAt: string;
 }
 
+export class SalesWorkspaceAppointmentDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  tenantId: string;
+
+  @ApiProperty()
+  leadId: string;
+
+  @ApiPropertyOptional()
+  dealId?: string | null;
+
+  @ApiPropertyOptional()
+  vehicleId?: string | null;
+
+  @ApiPropertyOptional()
+  assignedStaffId?: string | null;
+
+  @ApiProperty()
+  type: string;
+
+  @ApiProperty()
+  status: string;
+
+  @ApiProperty()
+  scheduledAt: string;
+
+  @ApiProperty()
+  durationMinutes: number;
+
+  @ApiPropertyOptional()
+  location?: string | null;
+
+  @ApiPropertyOptional()
+  notes?: string | null;
+
+  @ApiProperty()
+  createdAt: string;
+}
+
+export class SalesAppointmentMutationResultDto {
+  @ApiProperty({ type: SalesWorkspaceAppointmentDto })
+  appointment: SalesWorkspaceAppointmentDto;
+}
+
 export class MarkSalesNotificationReadResultDto {
   @ApiProperty({ type: SalesWorkspaceNotificationDto })
   notification: SalesWorkspaceNotificationDto;
@@ -462,4 +508,7 @@ export class SalesWorkspaceSnapshotDto {
 
   @ApiProperty({ type: [SalesWorkspaceFollowUpRuleDto] })
   followUpRules: SalesWorkspaceFollowUpRuleDto[];
+
+  @ApiProperty({ type: [SalesWorkspaceAppointmentDto] })
+  appointments: SalesWorkspaceAppointmentDto[];
 }

@@ -89,7 +89,8 @@ DealrStack is a dealership sales operating system, not a dealership ERP. Avoid b
 - [x] Website forms (public lead endpoint, capture token, embed snippet, idempotency key).
 - [x] CSV imports.
 - [x] Marketplace/manual entry flows for Jiji/Cheki-style sources.
-- [ ] Future: financing providers, calendars, social posting, AI lead qualification.
+- [x] Sales appointments calendar (test drives, visits, calls; pipeline test-drive stage sync).
+- [ ] Future: financing providers, external calendar sync (Google/Outlook), social posting, AI lead qualification.
 
 ## Do Not Build Yet
 

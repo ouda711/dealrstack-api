@@ -44,9 +44,12 @@ import { SendSalesConversationMessageDto } from './dto/send-sales-conversation-m
 import { UpdateSalesConversationDto } from './dto/update-sales-conversation.dto';
 import { UpdateSalesLeadDto } from './dto/update-sales-lead.dto';
 import { UpdateSalesPipelineDealDto } from './dto/update-sales-pipeline-deal.dto';
+import { CreateSalesAppointmentDto } from './dto/create-sales-appointment.dto';
+import { UpdateSalesAppointmentDto } from './dto/update-sales-appointment.dto';
 import {
   MarkAllSalesNotificationsReadResultDto,
   MarkSalesNotificationReadResultDto,
+  SalesAppointmentMutationResultDto,
   SalesWorkspaceSnapshotDto,
 } from './domain/sales-workspace';
 import { SalesLeadCaptureConfigDto } from './dto/sales-lead-capture-config.dto';
@@ -573,6 +576,52 @@ export class SalesController {
     return this.notificationDeliveryService.removePushSubscription(
       Number(request.user?.id),
       body.endpoint,
+    );
+  }
+
+  @ApiOkResponse({ type: SalesAppointmentMutationResultDto })
+  @Post('appointments')
+  @RequirePermissions('leads.manage', 'pipeline.manage')
+  @HttpCode(HttpStatus.OK)
+  @ApiParam({ name: 'tenantId', type: Number, required: true })
+  createAppointment(
+    @Param('tenantId') tenantId: number,
+    @Body() dto: CreateSalesAppointmentDto,
+  ) {
+    return this.salesWorkspaceService.createAppointment(Number(tenantId), dto);
+  }
+
+  @ApiOkResponse({ type: SalesAppointmentMutationResultDto })
+  @Patch('appointments/:appointmentId')
+  @RequirePermissions('leads.manage', 'pipeline.manage')
+  @HttpCode(HttpStatus.OK)
+  @ApiParam({ name: 'tenantId', type: Number, required: true })
+  @ApiParam({ name: 'appointmentId', type: Number, required: true })
+  updateAppointment(
+    @Param('tenantId') tenantId: number,
+    @Param('appointmentId') appointmentId: number,
+    @Body() dto: UpdateSalesAppointmentDto,
+  ) {
+    return this.salesWorkspaceService.updateAppointment(
+      Number(tenantId),
+      Number(appointmentId),
+      dto,
+    );
+  }
+
+  @ApiOkResponse({ type: SalesAppointmentMutationResultDto })
+  @Post('appointments/:appointmentId/cancel')
+  @RequirePermissions('leads.manage', 'pipeline.manage')
+  @HttpCode(HttpStatus.OK)
+  @ApiParam({ name: 'tenantId', type: Number, required: true })
+  @ApiParam({ name: 'appointmentId', type: Number, required: true })
+  cancelAppointment(
+    @Param('tenantId') tenantId: number,
+    @Param('appointmentId') appointmentId: number,
+  ) {
+    return this.salesWorkspaceService.cancelAppointment(
+      Number(tenantId),
+      Number(appointmentId),
     );
   }
 
