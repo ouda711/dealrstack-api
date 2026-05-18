@@ -73,7 +73,7 @@ DealrStack is a dealership sales operating system, not a dealership ERP. Avoid b
 ### 8. Notifications
 
 - [x] Add in-app notifications for new leads, customer replies, missed follow-ups, and reassignment.
-- [ ] Auto-create deposit and appointment notification kinds from live pipeline events (enum + demo seed only today).
+- [x] Auto-create deposit and appointment notifications when deals enter deposit/test-drive stages.
 - [x] Email and browser push delivery channels (tenant preferences + push subscriptions; requires mail + VAPID env).
 
 ### 9. Analytics

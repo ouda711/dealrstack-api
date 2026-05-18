@@ -58,6 +58,7 @@ import { WhatsAppIntegrationService } from '../whatsapp/whatsapp-integration.ser
 import { WhatsAppOutboundService } from '../whatsapp/whatsapp-outbound.service';
 import { phonesMatch } from '../whatsapp/utils/whatsapp-phone.util';
 import { appendListingToInterest } from './append-listing-to-interest.util';
+import { resolvePipelineStageNotification } from './pipeline-stage-notification.util';
 import { leadSourceLabel, parseSalesLeadsCsv } from './parse-sales-leads-csv';
 import { SalesNotificationService } from './sales-notification.service';
 import { VehicleEntity } from '../vehicles/infrastructure/persistence/relational/entities/vehicle.entity';
@@ -570,6 +571,8 @@ export class SalesWorkspaceService {
       dealId: deal.id,
     });
 
+    await this.notifyDealEnteredStage(tenantId, deal, lead, stageKey, pipeline);
+
     return this.getWorkspace(tenantId);
   }
 
@@ -780,6 +783,16 @@ export class SalesWorkspaceService {
       );
     }
 
+    if (dto.stageKey !== undefined && dto.stageKey !== beforeStageKey) {
+      await this.notifyDealEnteredStage(
+        tenantId,
+        deal,
+        lead,
+        dto.stageKey,
+        pipeline,
+      );
+    }
+
     return this.getWorkspace(tenantId);
   }
 
@@ -817,6 +830,14 @@ export class SalesWorkspaceService {
       const lead = await this.getLeadOrThrow(tenantId, deal.leadId);
       lead.lastActivityAt = new Date();
       await this.leadRepository.save(lead);
+
+      await this.notifyDealEnteredStage(
+        tenantId,
+        deal,
+        lead,
+        dto.stageKey,
+        pipeline,
+      );
     }
 
     return this.getWorkspace(tenantId);
@@ -965,6 +986,15 @@ export class SalesWorkspaceService {
       leadId: lead.id,
       dealId: deal.id,
     });
+
+    const pipeline = await this.salesPipelineService.getPipeline(tenantId);
+    await this.notifyDealEnteredStage(
+      tenantId,
+      deal,
+      lead,
+      dto.stageKey,
+      pipeline,
+    );
 
     return this.getWorkspace(tenantId);
   }
@@ -1485,6 +1515,34 @@ export class SalesWorkspaceService {
     }
 
     return lead;
+  }
+
+  private async notifyDealEnteredStage(
+    tenantId: number,
+    deal: SalesDealEntity,
+    lead: SalesLeadEntity,
+    stageKey: string,
+    pipeline: Awaited<ReturnType<SalesPipelineService['getPipeline']>>,
+  ) {
+    const trigger = resolvePipelineStageNotification({
+      stageKey,
+      stageLabel: this.stageLabel(pipeline, stageKey),
+      customerName: lead.customerName,
+      dealTitle: deal.title,
+    });
+
+    if (!trigger) {
+      return;
+    }
+
+    await this.salesNotificationService.createForDealStageIfAbsent({
+      tenantId,
+      kind: trigger.kind,
+      title: trigger.title,
+      body: trigger.body,
+      leadId: lead.id,
+      dealId: deal.id,
+    });
   }
 
   private stageLabel(

@@ -44,4 +44,27 @@ export class SalesNotificationService {
 
     return notification;
   }
+
+  async createForDealStageIfAbsent(
+    input: CreateSalesNotificationInput,
+  ): Promise<SalesNotificationEntity | null> {
+    if (!input.dealId) {
+      return this.create(input);
+    }
+
+    const existing = await this.notificationRepository.findOne({
+      where: {
+        tenantId: input.tenantId,
+        dealId: input.dealId,
+        kind: input.kind,
+        read: false,
+      },
+    });
+
+    if (existing) {
+      return null;
+    }
+
+    return this.create(input);
+  }
 }
