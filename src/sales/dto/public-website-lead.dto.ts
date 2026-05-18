@@ -1,5 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import {
+  IsInt,
+  IsOptional,
+  IsString,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 
 export class PublicWebsiteLeadDto {
   @ApiProperty({ example: 'James Mwangi' })
@@ -19,4 +25,9 @@ export class PublicWebsiteLeadDto {
   @IsString()
   @MaxLength(500)
   interestSummary?: string;
+
+  @ApiPropertyOptional({ example: 42, description: 'Inventory vehicle id' })
+  @IsOptional()
+  @IsInt()
+  vehicleId?: number;
 }

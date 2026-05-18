@@ -396,6 +396,23 @@ export class SalesController {
     );
   }
 
+  @ApiOkResponse({ type: SalesLeadCaptureConfigDto })
+  @ApiOperation({
+    summary: 'Set per-tenant Meta page access token for Lead Ads Graph API',
+  })
+  @Patch('lead-capture/meta-token')
+  @RequirePermissions('leads.manage')
+  @HttpCode(HttpStatus.OK)
+  updateMetaPageAccessToken(
+    @Param('tenantId') tenantId: number,
+    @Body() body: { metaPageAccessToken?: string | null },
+  ) {
+    return this.leadCaptureService.updateMetaPageAccessToken(
+      Number(tenantId),
+      body.metaPageAccessToken ?? null,
+    );
+  }
+
   @ApiOkResponse({ type: SalesWorkspaceSnapshotDto })
   @ApiOperation({
     summary: 'Create a lead from website, social, phone, or manual capture',

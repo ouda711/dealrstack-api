@@ -26,4 +26,18 @@ export class SalesLeadCaptureConfigDto {
     example: 'https://api.dealrstack.com/api/v1/webhooks/meta/lead-ads',
   })
   metaWebhookUrl: string;
+
+  @ApiPropertyOptional({
+    example: '••••••••••••abcd',
+    description: 'Masked Meta page access token for Graph API lead fetch',
+  })
+  metaPageAccessTokenMasked?: string | null;
+
+  @ApiProperty({ example: false })
+  metaTokenConfigured: boolean;
+
+  @ApiProperty({
+    description: 'Copy-paste HTML snippet for dealership websites',
+  })
+  websiteEmbedSnippet: string;
 }

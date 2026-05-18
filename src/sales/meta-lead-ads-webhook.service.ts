@@ -4,6 +4,7 @@ import {
   Injectable,
   Logger,
   UnauthorizedException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -12,6 +13,11 @@ import { Repository } from 'typeorm';
 import { AllConfigType } from '../config/config.type';
 import { TenantEntity } from '../tenants/infrastructure/persistence/relational/entities/tenant.entity';
 import { LeadSource } from './domain/sales.enums';
+import {
+  LEAD_CAPTURE_EVENT_SOURCE,
+  SalesLeadCaptureEventService,
+} from './sales-lead-capture-event.service';
+import { SalesLeadCaptureService } from './sales-lead-capture.service';
 import { SalesWorkspaceService } from './sales-workspace.service';
 
 type MetaLeadgenValue = {
@@ -44,6 +50,8 @@ export class MetaLeadAdsWebhookService {
     @InjectRepository(TenantEntity)
     private readonly tenantRepository: Repository<TenantEntity>,
     private readonly salesWorkspaceService: SalesWorkspaceService,
+    private readonly leadCaptureService: SalesLeadCaptureService,
+    private readonly captureEventService: SalesLeadCaptureEventService,
     private readonly configService: ConfigService<AllConfigType>,
   ) {}
 
@@ -145,13 +153,22 @@ export class MetaLeadAdsWebhookService {
       return;
     }
 
-    const accessToken = this.configService.get('metaLeadAds.pageAccessToken', {
-      infer: true,
-    });
+    const existing = await this.captureEventService.findProcessed(
+      tenant.id,
+      LEAD_CAPTURE_EVENT_SOURCE.metaLeadgen,
+      input.leadgenId,
+    );
+
+    if (existing) {
+      return;
+    }
+
+    const accessToken =
+      this.leadCaptureService.resolveMetaPageAccessToken(tenant);
 
     if (!accessToken) {
       this.logger.warn(
-        'META_PAGE_ACCESS_TOKEN not configured; skipping leadgen',
+        'Meta page access token not configured for tenant; skipping leadgen',
       );
       return;
     }
@@ -165,12 +182,41 @@ export class MetaLeadAdsWebhookService {
       return;
     }
 
-    await this.salesWorkspaceService.createLead(tenant.id, {
-      source: leadDetails.source as LeadSource.Facebook | LeadSource.Instagram,
-      customerName: leadDetails.customerName,
-      customerPhone: leadDetails.customerPhone,
-      interestSummary: leadDetails.interestSummary,
-    });
+    try {
+      const lead = await this.salesWorkspaceService.captureInboundLead(
+        tenant.id,
+        {
+          source: leadDetails.source as
+            | LeadSource.Facebook
+            | LeadSource.Instagram,
+          customerName: leadDetails.customerName,
+          customerPhone: leadDetails.customerPhone,
+          interestSummary: leadDetails.interestSummary,
+        },
+      );
+
+      await this.captureEventService.recordProcessed({
+        tenantId: tenant.id,
+        source: LEAD_CAPTURE_EVENT_SOURCE.metaLeadgen,
+        externalId: input.leadgenId,
+        leadId: lead.id,
+      });
+    } catch (error) {
+      if (
+        error instanceof UnprocessableEntityException &&
+        (error.getResponse() as { error?: string }).error ===
+          'leadPhoneAlreadyExists'
+      ) {
+        await this.captureEventService.recordProcessed({
+          tenantId: tenant.id,
+          source: LEAD_CAPTURE_EVENT_SOURCE.metaLeadgen,
+          externalId: input.leadgenId,
+        });
+        return;
+      }
+
+      throw error;
+    }
   }
 
   private async fetchLeadgenDetails(leadgenId: string, accessToken: string) {

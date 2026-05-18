@@ -15,6 +15,7 @@ import { MetaLeadAdsWebhookService } from './meta-lead-ads-webhook.service';
 import { PublicWebsiteLeadController } from './public-website-lead.controller';
 import { SalesController } from './sales.controller';
 import { SalesLeadCaptureService } from './sales-lead-capture.service';
+import { SalesLeadCaptureEventService } from './sales-lead-capture-event.service';
 import { SalesAssignmentModule } from './sales-assignment.module';
 import { SalesFollowUpAutomationService } from './sales-follow-up-automation.service';
 import { SalesLeadEscalationService } from './sales-lead-escalation.service';
@@ -41,6 +42,7 @@ import { WhatsAppModule } from '../whatsapp/whatsapp.module';
   ],
   providers: [
     MetaLeadAdsWebhookService,
+    SalesLeadCaptureEventService,
     SalesLeadCaptureService,
     SalesWorkspaceService,
     SalesFollowUpAutomationService,

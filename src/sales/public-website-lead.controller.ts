@@ -28,8 +28,14 @@ export class PublicWebsiteLeadController {
   createLead(
     @Param('tenantSlug') tenantSlug: string,
     @Headers('x-lead-capture-token') token: string | undefined,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
     @Body() dto: PublicWebsiteLeadDto,
   ) {
-    return this.leadCaptureService.createWebsiteLead(tenantSlug, token, dto);
+    return this.leadCaptureService.createWebsiteLead(
+      tenantSlug,
+      token,
+      dto,
+      idempotencyKey,
+    );
   }
 }

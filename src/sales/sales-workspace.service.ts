@@ -586,6 +586,17 @@ export class SalesWorkspaceService {
       lead.lostReason = dto.lostReason?.trim() || null;
     }
 
+    if (dto.vehicleId !== undefined) {
+      if (dto.vehicleId === null) {
+        lead.vehicleId = null;
+      } else {
+        lead.vehicleId = await this.resolveLeadVehicleId(
+          tenantId,
+          dto.vehicleId,
+        );
+      }
+    }
+
     lead.lastActivityAt = new Date();
     await this.leadRepository.save(lead);
 
@@ -961,7 +972,17 @@ export class SalesWorkspaceService {
     return this.getWorkspace(tenantId);
   }
 
-  async createLead(tenantId: number, dto: CreateSalesLeadDto) {
+  async captureInboundLead(
+    tenantId: number,
+    dto: {
+      source: LeadSource;
+      customerName: string;
+      customerPhone: string;
+      interestSummary: string;
+      branchId?: number;
+      vehicleId?: number;
+    },
+  ): Promise<SalesLeadEntity> {
     await this.getTenantOrThrow(tenantId);
     const branch = await this.resolveBranch(tenantId, dto.branchId);
     const existingLeads = await this.leadRepository.find({
@@ -979,7 +1000,9 @@ export class SalesWorkspaceService {
       });
     }
 
-    await this.persistCapturedLead({
+    const vehicleId = await this.resolveLeadVehicleId(tenantId, dto.vehicleId);
+
+    return this.persistCapturedLead({
       tenantId,
       branchId: branch.id,
       source: dto.source,
@@ -987,6 +1010,19 @@ export class SalesWorkspaceService {
       customerPhone: dto.customerPhone.trim(),
       interestSummary:
         dto.interestSummary?.trim() || `${leadSourceLabel(dto.source)} inquiry`,
+      vehicleId,
+    });
+  }
+
+  async createLead(tenantId: number, dto: CreateSalesLeadDto) {
+    await this.captureInboundLead(tenantId, {
+      source: dto.source,
+      customerName: dto.customerName,
+      customerPhone: dto.customerPhone,
+      interestSummary:
+        dto.interestSummary?.trim() || `${leadSourceLabel(dto.source)} inquiry`,
+      branchId: dto.branchId,
+      vehicleId: dto.vehicleId,
     });
 
     return this.getWorkspace(tenantId);
@@ -1356,6 +1392,28 @@ export class SalesWorkspaceService {
     return branch;
   }
 
+  private async resolveLeadVehicleId(
+    tenantId: number,
+    vehicleId?: number | null,
+  ): Promise<number | null> {
+    if (!vehicleId) {
+      return null;
+    }
+
+    const vehicle = await this.vehicleRepository.findOne({
+      where: { id: vehicleId, tenant: { id: tenantId } },
+    });
+
+    if (!vehicle) {
+      throw new NotFoundException({
+        status: HttpStatus.NOT_FOUND,
+        error: 'vehicleNotFound',
+      });
+    }
+
+    return vehicle.id;
+  }
+
   private async persistCapturedLead(input: {
     tenantId: number;
     branchId: number;
@@ -1363,6 +1421,7 @@ export class SalesWorkspaceService {
     customerName: string;
     customerPhone: string;
     interestSummary: string;
+    vehicleId?: number | null;
   }): Promise<SalesLeadEntity> {
     const now = new Date();
     const slaDueAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
@@ -1377,6 +1436,7 @@ export class SalesWorkspaceService {
         customerName: input.customerName,
         customerPhone: input.customerPhone,
         interestSummary: input.interestSummary,
+        vehicleId: input.vehicleId ?? null,
         assignedUserId: null,
         assignmentReason: null,
         unread: true,

@@ -1,5 +1,11 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
+import {
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 import { LeadStatus } from '../domain/sales.enums';
 
 export class UpdateSalesLeadDto {
@@ -13,4 +19,9 @@ export class UpdateSalesLeadDto {
   @IsString()
   @MaxLength(255)
   lostReason?: string | null;
+
+  @ApiPropertyOptional({ example: 42, nullable: true })
+  @IsOptional()
+  @IsInt()
+  vehicleId?: number | null;
 }

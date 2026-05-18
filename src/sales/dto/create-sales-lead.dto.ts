@@ -46,4 +46,9 @@ export class CreateSalesLeadDto {
   @IsOptional()
   @IsInt()
   branchId?: number;
+
+  @ApiPropertyOptional({ example: 42 })
+  @IsOptional()
+  @IsInt()
+  vehicleId?: number;
 }

@@ -53,6 +53,9 @@ export class TenantEntity extends EntityRelationalHelper {
   @Column({ type: String, length: 32, nullable: true })
   metaPageId?: string | null;
 
+  @Column({ type: String, length: 512, nullable: true })
+  metaPageAccessToken?: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 
