@@ -57,7 +57,9 @@ import { SalesLeadEscalationService } from './sales-lead-escalation.service';
 import { WhatsAppIntegrationService } from '../whatsapp/whatsapp-integration.service';
 import { WhatsAppOutboundService } from '../whatsapp/whatsapp-outbound.service';
 import { phonesMatch } from '../whatsapp/utils/whatsapp-phone.util';
+import { appendListingToInterest } from './append-listing-to-interest.util';
 import { leadSourceLabel, parseSalesLeadsCsv } from './parse-sales-leads-csv';
+import { SalesNotificationService } from './sales-notification.service';
 import { VehicleEntity } from '../vehicles/infrastructure/persistence/relational/entities/vehicle.entity';
 import {
   VehicleMediaEntity,
@@ -99,6 +101,7 @@ export class SalesWorkspaceService {
     private readonly whatsAppIntegrationService: WhatsAppIntegrationService,
     private readonly whatsAppOutboundService: WhatsAppOutboundService,
     private readonly settingsService: SettingsService,
+    private readonly salesNotificationService: SalesNotificationService,
   ) {}
 
   private conversationPresetsKey(tenantId: number) {
@@ -558,17 +561,14 @@ export class SalesWorkspaceService {
       }),
     );
 
-    await this.notificationRepository.save(
-      this.notificationRepository.create({
-        tenantId,
-        kind: NotificationKind.NewLead,
-        title: 'Lead added to pipeline',
-        body: `${lead.customerName} — ${title}`,
-        leadId: lead.id,
-        dealId: deal.id,
-        read: false,
-      }),
-    );
+    await this.salesNotificationService.create({
+      tenantId,
+      kind: NotificationKind.NewLead,
+      title: 'Lead added to pipeline',
+      body: `${lead.customerName} — ${title}`,
+      leadId: lead.id,
+      dealId: deal.id,
+    });
 
     return this.getWorkspace(tenantId);
   }
@@ -957,17 +957,14 @@ export class SalesWorkspaceService {
       }),
     );
 
-    await this.notificationRepository.save(
-      this.notificationRepository.create({
-        tenantId,
-        kind: NotificationKind.NewLead,
-        title: 'New pipeline card',
-        body: `${lead.customerName} — ${dto.title.trim()}`,
-        leadId: lead.id,
-        dealId: deal.id,
-        read: false,
-      }),
-    );
+    await this.salesNotificationService.create({
+      tenantId,
+      kind: NotificationKind.NewLead,
+      title: 'New pipeline card',
+      body: `${lead.customerName} — ${dto.title.trim()}`,
+      leadId: lead.id,
+      dealId: deal.id,
+    });
 
     return this.getWorkspace(tenantId);
   }
@@ -1019,8 +1016,11 @@ export class SalesWorkspaceService {
       source: dto.source,
       customerName: dto.customerName,
       customerPhone: dto.customerPhone,
-      interestSummary:
-        dto.interestSummary?.trim() || `${leadSourceLabel(dto.source)} inquiry`,
+      interestSummary: appendListingToInterest(
+        dto.interestSummary,
+        dto.listingUrl,
+        leadSourceLabel(dto.source),
+      ),
       branchId: dto.branchId,
       vehicleId: dto.vehicleId,
     });
@@ -1448,16 +1448,13 @@ export class SalesWorkspaceService {
     await this.assignmentEngineService.applyToLead(lead);
     lead = await this.leadRepository.findOneByOrFail({ id: lead.id });
 
-    await this.notificationRepository.save(
-      this.notificationRepository.create({
-        tenantId: input.tenantId,
-        kind: NotificationKind.NewLead,
-        title: `New ${leadSourceLabel(input.source)} lead`,
-        body: `${lead.customerName} — ${input.interestSummary}`,
-        leadId: lead.id,
-        read: false,
-      }),
-    );
+    await this.salesNotificationService.create({
+      tenantId: input.tenantId,
+      kind: NotificationKind.NewLead,
+      title: `New ${leadSourceLabel(input.source)} lead`,
+      body: `${lead.customerName} — ${input.interestSummary}`,
+      leadId: lead.id,
+    });
 
     return lead;
   }

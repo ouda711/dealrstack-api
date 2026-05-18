@@ -4,6 +4,7 @@ import { LeadPriority, LeadStatus } from './domain/sales.enums';
 import { SalesLeadEscalationService } from './sales-lead-escalation.service';
 import { SalesLeadEntity } from './infrastructure/persistence/relational/entities/sales-lead.entity';
 import { SalesNotificationEntity } from './infrastructure/persistence/relational/entities/sales-notification.entity';
+import { SalesNotificationService } from './sales-notification.service';
 
 describe('SalesLeadEscalationService', () => {
   let service: SalesLeadEscalationService;
@@ -43,9 +44,11 @@ describe('SalesLeadEscalationService', () => {
           provide: getRepositoryToken(SalesNotificationEntity),
           useValue: {
             findOne: jest.fn(() => null),
-            save: jest.fn((notification) => notification),
-            create: jest.fn((input) => input),
           },
+        },
+        {
+          provide: SalesNotificationService,
+          useValue: { create: jest.fn() },
         },
       ],
     }).compile();

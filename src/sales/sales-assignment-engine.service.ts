@@ -12,7 +12,7 @@ import { SalesAssignmentRuleEntity } from './infrastructure/persistence/relation
 import { SalesConversationEntity } from './infrastructure/persistence/relational/entities/sales-conversation.entity';
 import { SalesDealEntity } from './infrastructure/persistence/relational/entities/sales-deal.entity';
 import { SalesLeadEntity } from './infrastructure/persistence/relational/entities/sales-lead.entity';
-import { SalesNotificationEntity } from './infrastructure/persistence/relational/entities/sales-notification.entity';
+import { SalesNotificationService } from './sales-notification.service';
 
 type AssignmentCandidate = {
   userId: number;
@@ -39,8 +39,7 @@ export class SalesAssignmentEngineService {
     private readonly dealRepository: Repository<SalesDealEntity>,
     @InjectRepository(SalesConversationEntity)
     private readonly conversationRepository: Repository<SalesConversationEntity>,
-    @InjectRepository(SalesNotificationEntity)
-    private readonly notificationRepository: Repository<SalesNotificationEntity>,
+    private readonly salesNotificationService: SalesNotificationService,
     private readonly accessService: AccessService,
     private readonly branchesService: BranchesService,
   ) {}
@@ -106,16 +105,13 @@ export class SalesAssignmentEngineService {
       { assignedUserId: resolution.userId },
     );
 
-    await this.notificationRepository.save(
-      this.notificationRepository.create({
-        tenantId: lead.tenantId,
-        kind: NotificationKind.ReassignedLead,
-        title: 'Lead assigned',
-        body: `${lead.customerName} — ${resolution.reason}`,
-        leadId: lead.id,
-        read: false,
-      }),
-    );
+    await this.salesNotificationService.create({
+      tenantId: lead.tenantId,
+      kind: NotificationKind.ReassignedLead,
+      title: 'Lead assigned',
+      body: `${lead.customerName} — ${resolution.reason}`,
+      leadId: lead.id,
+    });
 
     return true;
   }

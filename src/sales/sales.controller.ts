@@ -43,6 +43,10 @@ import { UpdateSalesPipelineDealDto } from './dto/update-sales-pipeline-deal.dto
 import { SalesWorkspaceSnapshotDto } from './domain/sales-workspace';
 import { SalesLeadCaptureConfigDto } from './dto/sales-lead-capture-config.dto';
 import { SalesLeadCaptureService } from './sales-lead-capture.service';
+import { SalesNotificationDeliveryConfigDto } from './dto/sales-notification-delivery-config.dto';
+import { SalesNotificationDeliveryService } from './sales-notification-delivery.service';
+import { UpdateSalesNotificationDeliveryDto } from './dto/update-sales-notification-delivery.dto';
+import { UpsertSalesPushSubscriptionDto } from './dto/upsert-sales-push-subscription.dto';
 import { SalesWorkspaceService } from './sales-workspace.service';
 
 @ApiBearerAuth()
@@ -56,6 +60,7 @@ export class SalesController {
   constructor(
     private readonly salesWorkspaceService: SalesWorkspaceService,
     private readonly leadCaptureService: SalesLeadCaptureService,
+    private readonly notificationDeliveryService: SalesNotificationDeliveryService,
   ) {}
 
   @ApiOkResponse({ type: SalesWorkspaceSnapshotDto })
@@ -505,6 +510,59 @@ export class SalesController {
     return this.salesWorkspaceService.markLeadRead(
       Number(tenantId),
       Number(leadId),
+    );
+  }
+
+  @ApiOkResponse({ type: SalesNotificationDeliveryConfigDto })
+  @Get('notification-delivery')
+  @RequirePermissions('leads.manage')
+  @HttpCode(HttpStatus.OK)
+  getNotificationDelivery(@Param('tenantId') tenantId: number) {
+    return this.notificationDeliveryService.getConfig(Number(tenantId));
+  }
+
+  @ApiOkResponse({ type: SalesNotificationDeliveryConfigDto })
+  @Put('notification-delivery')
+  @RequirePermissions('leads.manage')
+  @HttpCode(HttpStatus.OK)
+  updateNotificationDelivery(
+    @Param('tenantId') tenantId: number,
+    @Body() dto: UpdateSalesNotificationDeliveryDto,
+  ) {
+    return this.notificationDeliveryService.updateConfig(Number(tenantId), dto);
+  }
+
+  @ApiOperation({
+    summary: 'Register browser push subscription for current user',
+  })
+  @Post('push-subscriptions')
+  @RequirePermissions('leads.manage', 'conversations.manage')
+  @HttpCode(HttpStatus.OK)
+  upsertPushSubscription(
+    @Param('tenantId') tenantId: number,
+    @Body() dto: UpsertSalesPushSubscriptionDto,
+    @Request() request: { user?: { id: number } },
+  ) {
+    return this.notificationDeliveryService.upsertPushSubscription(
+      Number(tenantId),
+      Number(request.user?.id),
+      dto,
+    );
+  }
+
+  @ApiOperation({
+    summary: 'Remove browser push subscription for current user',
+  })
+  @Delete('push-subscriptions')
+  @RequirePermissions('leads.manage', 'conversations.manage')
+  @HttpCode(HttpStatus.OK)
+  removePushSubscription(
+    @Body() body: { endpoint: string },
+    @Request() request: { user?: { id: number } },
+  ) {
+    return this.notificationDeliveryService.removePushSubscription(
+      Number(request.user?.id),
+      body.endpoint,
     );
   }
 

@@ -14,7 +14,7 @@ import {
 import { SalesConversationEntity } from '../sales/infrastructure/persistence/relational/entities/sales-conversation.entity';
 import { SalesLeadEntity } from '../sales/infrastructure/persistence/relational/entities/sales-lead.entity';
 import { SalesMessageEntity } from '../sales/infrastructure/persistence/relational/entities/sales-message.entity';
-import { SalesNotificationEntity } from '../sales/infrastructure/persistence/relational/entities/sales-notification.entity';
+import { SalesNotificationService } from '../sales/sales-notification.service';
 import { TenantWhatsAppIntegrationEntity } from './infrastructure/persistence/relational/entities/tenant-whatsapp-integration.entity';
 import { phonesMatch, toDisplayPhone } from './utils/whatsapp-phone.util';
 import {
@@ -35,8 +35,7 @@ export class WhatsAppInboundService {
     private readonly conversationRepository: Repository<SalesConversationEntity>,
     @InjectRepository(SalesMessageEntity)
     private readonly messageRepository: Repository<SalesMessageEntity>,
-    @InjectRepository(SalesNotificationEntity)
-    private readonly notificationRepository: Repository<SalesNotificationEntity>,
+    private readonly salesNotificationService: SalesNotificationService,
     private readonly branchesService: BranchesService,
     private readonly accessService: AccessService,
     private readonly assignmentEngineService: SalesAssignmentEngineService,
@@ -163,16 +162,13 @@ export class WhatsAppInboundService {
     lead.lastActivityAt = sentAt;
     await this.leadRepository.save(lead);
 
-    await this.notificationRepository.save(
-      this.notificationRepository.create({
-        tenantId,
-        kind: NotificationKind.CustomerReply,
-        title: 'Customer replied on WhatsApp',
-        body: `${lead.customerName}: ${conversation.lastMessagePreview}`,
-        leadId: lead.id,
-        read: false,
-      }),
-    );
+    await this.salesNotificationService.create({
+      tenantId,
+      kind: NotificationKind.CustomerReply,
+      title: 'Customer replied on WhatsApp',
+      body: `${lead.customerName}: ${conversation.lastMessagePreview}`,
+      leadId: lead.id,
+    });
   }
 
   private async findOrCreateLead(input: {

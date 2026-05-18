@@ -9,6 +9,7 @@ import { MailConfig } from '../mail/config/mail-config.type';
 import { AiConfig } from '../ai/config/ai-config.type';
 import { WhatsAppConfig } from '../whatsapp/config/whatsapp-config.type';
 import { MetaLeadAdsConfig } from '../sales/config/meta-lead-ads-config.type';
+import { WebPushConfig } from '../sales/config/web-push.config';
 
 export type AllConfigType = {
   app: AppConfig;
@@ -22,4 +23,5 @@ export type AllConfigType = {
   mail: MailConfig;
   whatsapp: WhatsAppConfig;
   metaLeadAds: MetaLeadAdsConfig;
+  webPush: WebPushConfig;
 };

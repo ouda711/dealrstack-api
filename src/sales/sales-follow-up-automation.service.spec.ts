@@ -12,6 +12,7 @@ import {
 } from './sales-follow-up-automation.service';
 import { SalesActivityEntity } from './infrastructure/persistence/relational/entities/sales-activity.entity';
 import { SalesNotificationEntity } from './infrastructure/persistence/relational/entities/sales-notification.entity';
+import { SalesNotificationService } from './sales-notification.service';
 
 describe('SalesFollowUpAutomationService', () => {
   let service: SalesFollowUpAutomationService;
@@ -39,9 +40,11 @@ describe('SalesFollowUpAutomationService', () => {
           provide: getRepositoryToken(SalesNotificationEntity),
           useValue: {
             findOne: jest.fn(() => Promise.resolve(null)),
-            save: jest.fn((entity) => Promise.resolve(entity)),
-            create: jest.fn((entity) => entity),
           },
+        },
+        {
+          provide: SalesNotificationService,
+          useValue: { create: jest.fn() },
         },
       ],
     }).compile();

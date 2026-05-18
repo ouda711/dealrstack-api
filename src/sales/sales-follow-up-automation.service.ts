@@ -14,6 +14,7 @@ import { SalesFollowUpRuleEntity } from './infrastructure/persistence/relational
 import { SalesLeadEntity } from './infrastructure/persistence/relational/entities/sales-lead.entity';
 import { SalesMessageEntity } from './infrastructure/persistence/relational/entities/sales-message.entity';
 import { SalesNotificationEntity } from './infrastructure/persistence/relational/entities/sales-notification.entity';
+import { SalesNotificationService } from './sales-notification.service';
 
 const TERMINAL_DEAL_STAGES = new Set(['sold', 'lost']);
 const CLOSED_LEAD_STATUSES = new Set(['won', 'lost']);
@@ -39,6 +40,7 @@ export class SalesFollowUpAutomationService {
     private readonly activityRepository: Repository<SalesActivityEntity>,
     @InjectRepository(SalesNotificationEntity)
     private readonly notificationRepository: Repository<SalesNotificationEntity>,
+    private readonly salesNotificationService: SalesNotificationService,
   ) {}
 
   async evaluateTenant(input: {
@@ -345,16 +347,13 @@ export class SalesFollowUpAutomationService {
       return;
     }
 
-    await this.notificationRepository.save(
-      this.notificationRepository.create({
-        tenantId: input.tenantId,
-        kind: NotificationKind.MissedFollowUp,
-        title: 'Follow-up overdue',
-        body: input.body,
-        leadId: input.leadId,
-        dealId: input.dealId,
-        read: false,
-      }),
-    );
+    await this.salesNotificationService.create({
+      tenantId: input.tenantId,
+      kind: NotificationKind.MissedFollowUp,
+      title: 'Follow-up overdue',
+      body: input.body,
+      leadId: input.leadId,
+      dealId: input.dealId,
+    });
   }
 }

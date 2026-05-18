@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AccessModule } from '../access/access.module';
 import { BranchesModule } from '../branches/branches.module';
 import { SalesAssignmentModule } from '../sales/sales-assignment.module';
+import { SalesNotificationsModule } from '../sales/sales-notifications.module';
 import { RelationalSalesPersistenceModule } from '../sales/infrastructure/persistence/relational/relational-persistence.module';
 import { TenantsModule } from '../tenants/tenants.module';
 import { TenantWhatsAppIntegrationEntity } from './infrastructure/persistence/relational/entities/tenant-whatsapp-integration.entity';
@@ -20,6 +21,7 @@ import { WhatsAppWebhookService } from './whatsapp-webhook.service';
     TypeOrmModule.forFeature([TenantWhatsAppIntegrationEntity]),
     RelationalSalesPersistenceModule,
     SalesAssignmentModule,
+    SalesNotificationsModule,
     TenantsModule,
     BranchesModule,
     AccessModule,

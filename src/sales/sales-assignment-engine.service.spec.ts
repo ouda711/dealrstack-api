@@ -8,7 +8,7 @@ import { SalesAssignmentRuleEntity } from './infrastructure/persistence/relation
 import { SalesLeadEntity } from './infrastructure/persistence/relational/entities/sales-lead.entity';
 import { SalesDealEntity } from './infrastructure/persistence/relational/entities/sales-deal.entity';
 import { SalesConversationEntity } from './infrastructure/persistence/relational/entities/sales-conversation.entity';
-import { SalesNotificationEntity } from './infrastructure/persistence/relational/entities/sales-notification.entity';
+import { SalesNotificationService } from './sales-notification.service';
 
 describe('SalesAssignmentEngineService', () => {
   let service: SalesAssignmentEngineService;
@@ -60,8 +60,8 @@ describe('SalesAssignmentEngineService', () => {
           useValue: {},
         },
         {
-          provide: getRepositoryToken(SalesNotificationEntity),
-          useValue: {},
+          provide: SalesNotificationService,
+          useValue: { create: jest.fn() },
         },
         {
           provide: AccessService,

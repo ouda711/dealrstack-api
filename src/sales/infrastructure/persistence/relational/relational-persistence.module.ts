@@ -9,6 +9,7 @@ import { SalesLeadEntity } from './entities/sales-lead.entity';
 import { SalesMessageEntity } from './entities/sales-message.entity';
 import { SalesNotificationEntity } from './entities/sales-notification.entity';
 import { SalesLeadCaptureEventEntity } from './entities/sales-lead-capture-event.entity';
+import { SalesPushSubscriptionEntity } from './entities/sales-push-subscription.entity';
 import { VehicleEntity } from '../../../../vehicles/infrastructure/persistence/relational/entities/vehicle.entity';
 import { VehicleMediaEntity } from '../../../../vehicles/infrastructure/persistence/relational/entities/vehicle-media.entity';
 
@@ -26,6 +27,7 @@ import { VehicleMediaEntity } from '../../../../vehicles/infrastructure/persiste
       SalesAssignmentRuleEntity,
       SalesFollowUpRuleEntity,
       SalesLeadCaptureEventEntity,
+      SalesPushSubscriptionEntity,
     ]),
   ],
   exports: [TypeOrmModule],

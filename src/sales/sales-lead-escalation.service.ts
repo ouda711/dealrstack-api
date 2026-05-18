@@ -8,6 +8,7 @@ import {
 } from './domain/sales.enums';
 import { SalesLeadEntity } from './infrastructure/persistence/relational/entities/sales-lead.entity';
 import { SalesNotificationEntity } from './infrastructure/persistence/relational/entities/sales-notification.entity';
+import { SalesNotificationService } from './sales-notification.service';
 
 const CLOSED_LEAD_STATUSES = new Set([LeadStatus.Won, LeadStatus.Lost]);
 const ESCALATION_TAG = '[escalation]';
@@ -26,6 +27,7 @@ export class SalesLeadEscalationService {
     private readonly leadRepository: Repository<SalesLeadEntity>,
     @InjectRepository(SalesNotificationEntity)
     private readonly notificationRepository: Repository<SalesNotificationEntity>,
+    private readonly salesNotificationService: SalesNotificationService,
   ) {}
 
   async evaluateTenant(tenantId: number): Promise<number> {
@@ -72,16 +74,13 @@ export class SalesLeadEscalationService {
     lead.lastActivityAt = now;
     await this.leadRepository.save(lead);
 
-    await this.notificationRepository.save(
-      this.notificationRepository.create({
-        tenantId: lead.tenantId,
-        kind: NotificationKind.MissedFollowUp,
-        title: 'Lead escalated',
-        body: `${ESCALATION_TAG} ${lead.customerName} — ${this.reasonLabel(reason)}`,
-        leadId: lead.id,
-        read: false,
-      }),
-    );
+    await this.salesNotificationService.create({
+      tenantId: lead.tenantId,
+      kind: NotificationKind.MissedFollowUp,
+      title: 'Lead escalated',
+      body: `${ESCALATION_TAG} ${lead.customerName} — ${this.reasonLabel(reason)}`,
+      leadId: lead.id,
+    });
 
     return true;
   }

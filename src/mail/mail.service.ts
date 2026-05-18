@@ -161,6 +161,35 @@ export class MailService {
     });
   }
 
+  async salesAlert(
+    mailData: MailData<{ title: string; body: string; actionUrl?: string }>,
+  ): Promise<void> {
+    const title = mailData.data.title;
+
+    await this.mailerService.sendMail({
+      to: mailData.to,
+      subject: title,
+      text: `${title}\n\n${mailData.data.body}${
+        mailData.data.actionUrl ? `\n\n${mailData.data.actionUrl}` : ''
+      }`,
+      templatePath: path.join(
+        this.configService.getOrThrow('app.workingDirectory', {
+          infer: true,
+        }),
+        'src',
+        'mail',
+        'mail-templates',
+        'sales-alert.hbs',
+      ),
+      context: {
+        title,
+        body: mailData.data.body,
+        actionUrl: mailData.data.actionUrl,
+        app_name: this.configService.get('app.name', { infer: true }),
+      },
+    });
+  }
+
   async confirmNewEmail(mailData: MailData<{ hash: string }>): Promise<void> {
     const i18n = I18nContext.current();
     let emailConfirmTitle: MaybeType<string>;

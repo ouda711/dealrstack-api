@@ -16,6 +16,8 @@ import { PublicWebsiteLeadController } from './public-website-lead.controller';
 import { SalesController } from './sales.controller';
 import { SalesLeadCaptureService } from './sales-lead-capture.service';
 import { SalesLeadCaptureEventService } from './sales-lead-capture-event.service';
+import { SalesNotificationsModule } from './sales-notifications.module';
+import webPushConfig from './config/web-push.config';
 import { SalesAssignmentModule } from './sales-assignment.module';
 import { SalesFollowUpAutomationService } from './sales-follow-up-automation.service';
 import { SalesLeadEscalationService } from './sales-lead-escalation.service';
@@ -25,6 +27,8 @@ import { WhatsAppModule } from '../whatsapp/whatsapp.module';
 @Module({
   imports: [
     ConfigModule.forFeature(metaLeadAdsConfig),
+    ConfigModule.forFeature(webPushConfig),
+    SalesNotificationsModule,
     TypeOrmModule.forFeature([TenantEntity]),
     RelationalSalesPersistenceModule,
     SalesPipelineModule,

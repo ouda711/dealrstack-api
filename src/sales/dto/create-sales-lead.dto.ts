@@ -16,6 +16,8 @@ export const CAPTURE_LEAD_SOURCES = [
   LeadSource.Phone,
   LeadSource.WalkIn,
   LeadSource.Csv,
+  LeadSource.Jiji,
+  LeadSource.Cheki,
   LeadSource.Manual,
 ] as const;
 
@@ -51,4 +53,12 @@ export class CreateSalesLeadDto {
   @IsOptional()
   @IsInt()
   vehicleId?: number;
+
+  @ApiPropertyOptional({
+    example: 'https://jiji.co.ke/cars/toyota-harrier-123',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  listingUrl?: string;
 }
