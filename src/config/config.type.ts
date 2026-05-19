@@ -10,6 +10,7 @@ import { AiConfig } from '../ai/config/ai-config.type';
 import { WhatsAppConfig } from '../whatsapp/config/whatsapp-config.type';
 import { MetaLeadAdsConfig } from '../sales/config/meta-lead-ads-config.type';
 import { WebPushConfig } from '../sales/config/web-push.config';
+import { GoogleCalendarConfig } from '../sales/config/google-calendar.config';
 
 export type AllConfigType = {
   app: AppConfig;
@@ -24,4 +25,5 @@ export type AllConfigType = {
   whatsapp: WhatsAppConfig;
   metaLeadAds: MetaLeadAdsConfig;
   webPush: WebPushConfig;
+  googleCalendar: GoogleCalendarConfig;
 };

@@ -15,6 +15,7 @@ import aiConfig from './ai/config/ai.config';
 import whatsappConfig from './whatsapp/config/whatsapp.config';
 import metaLeadAdsConfig from './sales/config/meta-lead-ads.config';
 import webPushConfig from './sales/config/web-push.config';
+import googleCalendarConfig from './sales/config/google-calendar.config';
 import path from 'path';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -41,6 +42,7 @@ import { FLYER_STREAM_THROTTLE } from './vehicles/flyer-stream-throttle.config';
 import { SettingsModule } from './settings/settings.module';
 import { SalesPipelineModule } from './sales-pipeline/sales-pipeline.module';
 import { SalesModule } from './sales/sales.module';
+import { GrowthModule } from './growth/growth.module';
 import { WhatsAppModule } from './whatsapp/whatsapp.module';
 
 // <database-block>
@@ -74,6 +76,7 @@ const infrastructureDatabaseModule = (databaseConfig() as DatabaseConfig)
         whatsappConfig,
         metaLeadAdsConfig,
         webPushConfig,
+        googleCalendarConfig,
       ],
       envFilePath: ['.env'],
     }),
@@ -126,6 +129,7 @@ const infrastructureDatabaseModule = (databaseConfig() as DatabaseConfig)
     SettingsModule,
     SalesPipelineModule,
     SalesModule,
+    GrowthModule,
     WhatsAppModule,
   ],
 })

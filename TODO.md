@@ -90,7 +90,9 @@ DealrStack is a dealership sales operating system, not a dealership ERP. Avoid b
 - [x] CSV imports.
 - [x] Marketplace/manual entry flows for Jiji/Cheki-style sources.
 - [x] Sales appointments calendar (test drives, visits, calls; pipeline test-drive stage sync).
-- [ ] Future: financing providers, external calendar sync (Google/Outlook), social posting, AI lead qualification.
+- [x] External calendar sync foundation (Google OAuth + push events on create/update; Outlook planned).
+- [x] Growth engine API stubs (`/growth/features`, `/growth/leads/:id/qualify` beta).
+- [ ] Future: financing providers (full workflows), Outlook calendar sync, social posting (publish), AI qualification automation rules.
 
 ## Do Not Build Yet
 

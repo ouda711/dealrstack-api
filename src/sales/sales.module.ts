@@ -18,16 +18,19 @@ import { SalesLeadCaptureService } from './sales-lead-capture.service';
 import { SalesLeadCaptureEventService } from './sales-lead-capture-event.service';
 import { SalesNotificationsModule } from './sales-notifications.module';
 import webPushConfig from './config/web-push.config';
+import googleCalendarConfig from './config/google-calendar.config';
 import { SalesAssignmentModule } from './sales-assignment.module';
 import { SalesFollowUpAutomationService } from './sales-follow-up-automation.service';
 import { SalesLeadEscalationService } from './sales-lead-escalation.service';
 import { SalesWorkspaceService } from './sales-workspace.service';
+import { SalesCalendarSyncService } from './sales-calendar-sync.service';
 import { WhatsAppModule } from '../whatsapp/whatsapp.module';
 
 @Module({
   imports: [
     ConfigModule.forFeature(metaLeadAdsConfig),
     ConfigModule.forFeature(webPushConfig),
+    ConfigModule.forFeature(googleCalendarConfig),
     SalesNotificationsModule,
     TypeOrmModule.forFeature([TenantEntity]),
     RelationalSalesPersistenceModule,
@@ -49,6 +52,7 @@ import { WhatsAppModule } from '../whatsapp/whatsapp.module';
     SalesLeadCaptureEventService,
     SalesLeadCaptureService,
     SalesWorkspaceService,
+    SalesCalendarSyncService,
     SalesFollowUpAutomationService,
     SalesLeadEscalationService,
     PermissionsGuard,

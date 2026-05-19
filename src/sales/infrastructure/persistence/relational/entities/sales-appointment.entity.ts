@@ -17,6 +17,7 @@ import { EntityRelationalHelper } from '../../../../../utils/relational-entity-h
 import {
   SalesAppointmentStatus,
   SalesAppointmentType,
+  SalesCalendarProvider,
 } from '../../../../domain/sales.enums';
 import { SalesDealEntity } from './sales-deal.entity';
 import { SalesLeadEntity } from './sales-lead.entity';
@@ -89,6 +90,16 @@ export class SalesAppointmentEntity extends EntityRelationalHelper {
 
   @Column({ type: String, length: 1000, nullable: true })
   notes?: string | null;
+
+  @Column({ type: String, length: 255, nullable: true })
+  externalCalendarEventId?: string | null;
+
+  @Column({
+    type: 'enum',
+    enum: SalesCalendarProvider,
+    nullable: true,
+  })
+  externalCalendarProvider?: SalesCalendarProvider | null;
 
   @CreateDateColumn()
   createdAt: Date;

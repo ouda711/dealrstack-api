@@ -60,6 +60,9 @@ import { UpdateSalesNotificationDeliveryDto } from './dto/update-sales-notificat
 import { UpsertSalesPushSubscriptionDto } from './dto/upsert-sales-push-subscription.dto';
 import { SalesNotificationStreamService } from './sales-notification-stream.service';
 import { SalesWorkspaceService } from './sales-workspace.service';
+import { SalesCalendarSyncService } from './sales-calendar-sync.service';
+import { ConnectGoogleCalendarDto } from './dto/connect-google-calendar.dto';
+import { GoogleCalendarAuthorizeDto } from './dto/google-calendar-authorize.dto';
 
 @ApiBearerAuth()
 @UseGuards(AuthGuard('jwt'), PermissionsGuard)
@@ -74,6 +77,7 @@ export class SalesController {
     private readonly leadCaptureService: SalesLeadCaptureService,
     private readonly notificationDeliveryService: SalesNotificationDeliveryService,
     private readonly notificationStreamService: SalesNotificationStreamService,
+    private readonly calendarSyncService: SalesCalendarSyncService,
   ) {}
 
   @ApiOkResponse({ type: SalesWorkspaceSnapshotDto })
@@ -587,8 +591,13 @@ export class SalesController {
   createAppointment(
     @Param('tenantId') tenantId: number,
     @Body() dto: CreateSalesAppointmentDto,
+    @Request() request: { user?: { id: number } },
   ) {
-    return this.salesWorkspaceService.createAppointment(Number(tenantId), dto);
+    return this.salesWorkspaceService.createAppointment(
+      Number(tenantId),
+      dto,
+      request.user?.id,
+    );
   }
 
   @ApiOkResponse({ type: SalesAppointmentMutationResultDto })
@@ -601,11 +610,13 @@ export class SalesController {
     @Param('tenantId') tenantId: number,
     @Param('appointmentId') appointmentId: number,
     @Body() dto: UpdateSalesAppointmentDto,
+    @Request() request: { user?: { id: number } },
   ) {
     return this.salesWorkspaceService.updateAppointment(
       Number(tenantId),
       Number(appointmentId),
       dto,
+      request.user?.id,
     );
   }
 
@@ -622,6 +633,72 @@ export class SalesController {
     return this.salesWorkspaceService.cancelAppointment(
       Number(tenantId),
       Number(appointmentId),
+    );
+  }
+
+  @ApiOperation({ summary: 'List calendar connections for current user' })
+  @Get('calendar-connections')
+  @RequirePermissions('leads.manage', 'pipeline.manage')
+  @HttpCode(HttpStatus.OK)
+  listCalendarConnections(
+    @Param('tenantId') tenantId: number,
+    @Request() request: { user?: { id: number } },
+  ) {
+    const userId = Number(request.user?.id);
+
+    if (!userId) {
+      return { connections: [] };
+    }
+
+    return this.calendarSyncService.listConnections(Number(tenantId), userId);
+  }
+
+  @ApiOperation({ summary: 'Get Google Calendar OAuth URL' })
+  @Post('calendar-connections/google/authorize')
+  @RequirePermissions('leads.manage', 'pipeline.manage')
+  @HttpCode(HttpStatus.OK)
+  googleCalendarAuthorize(
+    @Param('tenantId') tenantId: number,
+    @Request() request: { user?: { id: number } },
+    @Body() dto: GoogleCalendarAuthorizeDto,
+  ) {
+    return this.calendarSyncService.getGoogleAuthorizeUrl(
+      Number(tenantId),
+      Number(request.user?.id),
+      dto.redirectUri,
+    );
+  }
+
+  @ApiOperation({ summary: 'Complete Google Calendar OAuth connection' })
+  @Post('calendar-connections/google/connect')
+  @RequirePermissions('leads.manage', 'pipeline.manage')
+  @HttpCode(HttpStatus.OK)
+  connectGoogleCalendar(
+    @Param('tenantId') tenantId: number,
+    @Request() request: { user?: { id: number } },
+    @Body() dto: ConnectGoogleCalendarDto,
+  ) {
+    return this.calendarSyncService.connectGoogle(
+      Number(tenantId),
+      Number(request.user?.id),
+      dto.code,
+      dto.redirectUri,
+    );
+  }
+
+  @ApiOperation({ summary: 'Disconnect a calendar integration' })
+  @Delete('calendar-connections/:connectionId')
+  @RequirePermissions('leads.manage', 'pipeline.manage')
+  @HttpCode(HttpStatus.OK)
+  disconnectCalendar(
+    @Param('tenantId') tenantId: number,
+    @Param('connectionId') connectionId: number,
+    @Request() request: { user?: { id: number } },
+  ) {
+    return this.calendarSyncService.disconnect(
+      Number(tenantId),
+      Number(request.user?.id),
+      Number(connectionId),
     );
   }
 

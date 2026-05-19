@@ -79,3 +79,8 @@ export enum SalesAppointmentStatus {
   Cancelled = 'cancelled',
   NoShow = 'no_show',
 }
+
+export enum SalesCalendarProvider {
+  Google = 'google',
+  Outlook = 'outlook',
+}

@@ -77,6 +77,7 @@ import { leadSourceLabel, parseSalesLeadsCsv } from './parse-sales-leads-csv';
 import { mapSalesNotificationToWorkspaceDto } from './map-sales-notification-to-workspace.dto';
 import { SalesNotificationService } from './sales-notification.service';
 import { SalesNotificationStreamService } from './sales-notification-stream.service';
+import { SalesCalendarSyncService } from './sales-calendar-sync.service';
 import { VehicleEntity } from '../vehicles/infrastructure/persistence/relational/entities/vehicle.entity';
 import {
   VehicleMediaEntity,
@@ -122,6 +123,7 @@ export class SalesWorkspaceService {
     private readonly settingsService: SettingsService,
     private readonly salesNotificationService: SalesNotificationService,
     private readonly notificationStreamService: SalesNotificationStreamService,
+    private readonly calendarSyncService: SalesCalendarSyncService,
   ) {}
 
   private conversationPresetsKey(tenantId: number) {
@@ -1349,6 +1351,7 @@ export class SalesWorkspaceService {
   async createAppointment(
     tenantId: number,
     dto: CreateSalesAppointmentDto,
+    actingUserId?: number,
   ): Promise<SalesAppointmentMutationResultDto> {
     await this.getTenantOrThrow(tenantId);
     const lead = await this.getLeadOrThrow(tenantId, dto.leadId);
@@ -1433,6 +1436,12 @@ export class SalesWorkspaceService {
       dealId: deal?.id ?? null,
     });
 
+    void this.calendarSyncService.syncAppointmentForTenant(
+      tenantId,
+      appointment.id,
+      actingUserId,
+    );
+
     return { appointment: mapSalesAppointmentToWorkspaceDto(appointment) };
   }
 
@@ -1440,6 +1449,7 @@ export class SalesWorkspaceService {
     tenantId: number,
     appointmentId: number,
     dto: UpdateSalesAppointmentDto,
+    actingUserId?: number,
   ): Promise<SalesAppointmentMutationResultDto> {
     const appointment = await this.getAppointmentOrThrow(
       tenantId,
@@ -1484,6 +1494,12 @@ export class SalesWorkspaceService {
     }
 
     await this.appointmentRepository.save(appointment);
+
+    void this.calendarSyncService.syncAppointmentForTenant(
+      tenantId,
+      appointment.id,
+      actingUserId,
+    );
 
     return { appointment: mapSalesAppointmentToWorkspaceDto(appointment) };
   }
